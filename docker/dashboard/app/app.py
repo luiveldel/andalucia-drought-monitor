@@ -167,24 +167,24 @@ def header() -> rx.Component:
 def kpi_grid() -> rx.Component:
     return rx.grid(
         kpi_card(
-            "Average reservoir fill",
+            "Capacidad media",
             DashboardState.avg_fill_pct.to(str) + "%",
-            "Provincial average on latest date",
+            "Media agregada de embalses andaluces",
         ),
         kpi_card(
-            "Total stored volume",
-            DashboardState.total_stored_hm3.to(str) + " hm3",
-            "Sum across monitored provinces",
+            "SPI-12 medio",
+            DashboardState.avg_water_deficit_mm.to(str),
+            "Señal de estrés hidrológico provincial",
         ),
         kpi_card(
-            "Provinces in drought alert",
+            "Precipitación",
+            DashboardState.total_stored_hm3.to(str) + " mm",
+            "Acumulado reciente consolidado",
+        ),
+        kpi_card(
+            "Provincias en emergencia",
             DashboardState.provinces_in_alert,
-            "From fact_drought_alert (last 30 days)",
-        ),
-        kpi_card(
-            "Average water deficit",
-            DashboardState.avg_water_deficit_mm.to(str) + " mm/day",
-            "ET0 minus precipitation",
+            "Según reglas de alerta del modelo",
         ),
         columns=rx.breakpoints(initial="1", sm="2", lg="4"),
         gap="4",
