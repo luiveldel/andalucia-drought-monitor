@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: raw_gis_agricultural_zones
+      - name: raw_embalses_catalog
+      - name: raw_embalses_diarios
+      - name: raw_ria_clima_diario

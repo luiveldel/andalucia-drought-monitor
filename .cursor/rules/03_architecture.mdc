@@ -1,0 +1,10 @@
+---
+description: General architecture of the Medallion project
+globs: ["*"]
+---
+# Data Architecture (Medallion Schema)
+
+The PostgreSQL Data Warehouse is logically divided into three schemas managed by dbt:
+1. `raw` (Bronze Layer): Landing zone for raw data extracted by Airflow. Strictly no transformations applied here.
+2. `staging` (Silver Layer): Technical cleaning, data typing, and null removal.
+3. `marts` (Gold Layer): Analytical models (Star Schema) ready to be connected to Metabase.

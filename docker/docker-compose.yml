@@ -1,0 +1,147 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ./airflow
+    dockerfile: Dockerfile
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: "dGVzdF9mZXJuZXRfa2V5X2Rldl9vbmx5XzMyYnl0ZXMh"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    POSTGRES_DWH_HOST: postgres
+    POSTGRES_DWH_PORT: "5432"
+    POSTGRES_DWH_DB: agro_sequia
+    POSTGRES_DWH_USER: dwh_user
+    POSTGRES_DWH_PASSWORD: dwh_password
+    POSTGRES_DWH_SCHEMA: staging
+    GIS_AGRICULTURAL_ZONES_URL: "${GIS_AGRICULTURAL_ZONES_URL:-https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/spain-provinces.geojson}"
+  volumes:
+    - ../airflow_workspace/dags:/opt/airflow/dags
+    - ../airflow_workspace/plugins:/opt/airflow/plugins
+    - ../airflow_workspace/logs:/opt/airflow/logs
+    - ../scripts:/opt/airflow/scripts
+    - ../dbt_project:/opt/airflow/dbt_project
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    # Changed from postgres:16 to postgis/postgis:16-3.4
+    image: postgis/postgis:16-3.4
+    container_name: agro-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agro-network
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: agro-airflow-init
+    user: "0:0"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -e
+        AIRFLOW_UID=$${AIRFLOW_UID:-50000}
+        mkdir -p /opt/airflow/logs/dag_processor_manager
+        chown -R "$${AIRFLOW_UID}:0" /opt/airflow/logs
+        chmod -R g+rwX /opt/airflow/logs
+        su airflow -c "airflow db migrate"
+        su airflow -c "airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com" || true
+    networks:
+      - agro-network
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: agro-airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - agro-network
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: agro-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"',
+        ]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - agro-network
+
+  reflex-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: agro-reflex-dashboard
+    ports:
+      - "3000:3000" # Frontend de Reflex
+      - "8000:8000" # Backend de Reflex
+    dns:
+      - 8.8.8.8
+    environment:
+      HOSTNAME: "0.0.0.0"
+      POSTGRES_DWH_HOST: postgres
+      POSTGRES_DWH_PORT: "5432"
+      POSTGRES_DWH_DB: agro_sequia
+      POSTGRES_DWH_USER: dwh_user
+      POSTGRES_DWH_PASSWORD: dwh_password
+      POSTGRES_DWH_SCHEMA: marts
+    volumes:
+      - ./dashboard:/app # <-- ¡Esto activa el hot-reloading para que el código en vivo se refleje en la web!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agro-network
+
+volumes:
+  postgres-data:
+
+networks:
+  agro-network:
+    driver: bridge

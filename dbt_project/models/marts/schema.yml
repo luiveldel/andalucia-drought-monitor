@@ -1,0 +1,97 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Date dimension for hydrological and climate facts (includes hydrological year).
+    columns:
+      - name: date_key
+        description: Surrogate key in YYYYMMDD integer format.
+        tests:
+          - not_null
+          - unique
+      - name: observation_date
+        description: Calendar date (natural key).
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_reservoirs
+    description: Reservoir dimension derived from REDIAM staging data.
+    columns:
+      - name: reservoir_key
+        description: Surrogate primary key.
+        tests:
+          - not_null
+          - unique
+      - name: reservoir_code
+        description: REDIAM reservoir code (natural key).
+        tests:
+          - not_null
+          - unique
+      - name: reservoir_name
+        description: Official reservoir name from the REDIAM catalog.
+      - name: province_name
+        description: Province where the reservoir is located.
+      - name: watershed_demarcation
+        description: Hydrographic demarcation.
+      - name: river_name
+        description: River associated with the reservoir.
+
+  - name: dim_stations
+    description: RIA agroclimatic station dimension.
+    columns:
+      - name: station_key
+        description: Surrogate primary key.
+        tests:
+          - not_null
+          - unique
+      - name: province_id
+        tests:
+          - not_null
+      - name: station_code
+        tests:
+          - not_null
+
+  - name: fact_reservoir_daily
+    description: Daily reservoir status fact — volumes and fill levels per reservoir per day.
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: reservoir_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_reservoirs')
+                field: reservoir_key
+      - name: stored_volume_hm3
+        description: Stored water volume in hm³.
+      - name: fill_percentage
+        description: Reservoir fill percentage.
+
+  - name: fact_climate_daily
+    description: Daily agroclimatic readings fact per RIA station.
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: station_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_stations')
+                field: station_key
+      - name: precipitation_mm
+        description: Daily precipitation in millimetres.
+      - name: reference_evapotranspiration_mm
+        description: Reference evapotranspiration (ET0) in millimetres.

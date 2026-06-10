@@ -1,0 +1,31 @@
+name: andalucia_drought_monitor
+version: 1.0.0
+config-version: 2
+
+profile: agro_sequia
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  andalucia_drought_monitor:
+    staging:
+      +schema: staging
+      +materialized: view
+      +tags: ["silver", "staging"]
+
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+      +tags: ["silver", "intermediate"]
+
+    marts:
+      +schema: marts
+      +materialized: table
+      +tags: ["gold", "marts"]

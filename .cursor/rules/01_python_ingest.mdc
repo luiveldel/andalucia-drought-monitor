@@ -1,0 +1,11 @@
+---
+description: Rules for Python scripts and Airflow DAGs
+globs: ["scripts/**/*.py", "airflow_workspace/dags/**/*.py"]
+---
+# Data Ingestion and Orchestration Rules
+
+- ALWAYS use `polars` for data processing. NEVER use `pandas`.
+- Wrap core logic in modular functions (e.g., `def fetch_data()`, `def process_with_polars()`).
+- Use `requests` to extract data from public APIs.
+- Use `SQLAlchemy` or `psycopg2` to load raw data into PostgreSQL.
+- Airflow DAGs MUST be idempotent and use the `kwargs['ds']` variable to manage daily incremental loads.

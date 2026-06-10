@@ -1,0 +1,12 @@
+---
+description: Rules for the Reflex web dashboard
+globs: ["dashboard/**/*.py"]
+---
+# Reflex Web Dashboard Rules
+
+- **Framework:** Use `reflex` to build the web interface. All frontend code must reside in the `/dashboard` directory.
+- **Language:** STRICTLY English for all variables, states, UI text, and comments.
+- **Data Source:** The dashboard MUST read data exclusively from the `marts` schema (Gold layer) in the PostgreSQL Data Warehouse, NEVER from `raw` or `staging`.
+- **Database Connection:** Use `SQLAlchemy` or `SQLModel` within Reflex States to fetch data. Use the environment variables (POSTGRES_DWH_...) to build the connection string.
+- **UI Design:** Implement a modern, clean UI similar to modern Next.js/Tremor dashboards. Use cards for KPIs, donut charts for distributions (e.g., reservoir status), and clean layout structures.
+- **Independence:** The dashboard runs independently from Airflow. It only consumes the final analytical tables.

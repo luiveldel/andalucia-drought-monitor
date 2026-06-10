@@ -1,0 +1,12 @@
+---
+description: Conventions for dbt SQL models
+globs: ["dbt_project/models/**/*.sql"]
+---
+# dbt Modeling and SQL Rules
+
+- ALWAYS use `snake_case` to name tables, schemas, and columns.
+- Enforce strict data types (e.g., dates as `DATE`, metrics as `NUMERIC`).
+- Models in the `staging` layer MUST use the prefix `stg_`.
+- Models in the `marts` layer MUST use the prefix `dim_` (for dimensions) or `fact_` (for facts).
+- All SQL code MUST be structured using CTEs (Common Table Expressions).
+- Always include the configuration block at the top of every model: `{{ config(materialized='table'/'view') }}`.

@@ -1,0 +1,9 @@
+polars>=1.0.0
+requests>=2.31.0
+psycopg2-binary>=2.9.9
+SQLAlchemy>=1.4.36,<2.0
+dbt-core>=1.7.0,<2.0.0
+dbt-postgres>=1.7.0,<2.0.0
+geopandas>=1.0.0
+geoalchemy2>=0.14.0
+shapely>=2.0.0

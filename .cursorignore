@@ -1,0 +1,19 @@
+# Ignorar datos crudos y procesados
+*.csv
+*.json
+*.parquet
+*.db
+data/
+
+# Ignorar logs de Airflow y temporales
+logs/
+airflow_workspace/logs/
+*.log
+
+# Ignorar entornos virtuales y cachés
+.venv/
+venv/
+__pycache__/
+.dbt/
+target/
+dbt_packages/

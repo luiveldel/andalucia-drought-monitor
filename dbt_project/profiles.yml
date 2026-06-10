@@ -1,0 +1,24 @@
+agro_sequia:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_DWH_HOST') }}"
+      port: "{{ env_var('POSTGRES_DWH_PORT') | int }}"
+      user: "{{ env_var('POSTGRES_DWH_USER') }}"
+      password: "{{ env_var('POSTGRES_DWH_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DWH_DB') }}"
+      schema: "{{ env_var('POSTGRES_DWH_SCHEMA') }}"
+      threads: 4
+      keepalives_idle: 0
+
+    docker:
+      type: postgres
+      host: postgres
+      port: 5432
+      user: dwh_user
+      password: dwh_password
+      dbname: agro_sequia
+      schema: staging
+      threads: 4
+      keepalives_idle: 0

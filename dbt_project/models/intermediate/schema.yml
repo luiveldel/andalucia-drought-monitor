@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: int_clean_embalses
+    description: >
+      Cleaned and deduplicated daily reservoir readings with English column names.
+    columns:
+      - name: observation_date
+        tests:
+          - not_null
+      - name: reservoir_code
+        tests:
+          - not_null
+      - name: loaded_at
+        tests:
+          - not_null
+
+  - name: int_clean_embalses_catalog
+    description: >
+      Cleaned and deduplicated reservoir catalog metadata.
+    columns:
+      - name: reservoir_code
+        tests:
+          - not_null
+          - unique
+
+  - name: int_clean_ria
+    description: >
+      Cleaned and deduplicated daily agroclimatic readings with English column names.
+    columns:
+      - name: observation_date
+        tests:
+          - not_null
+      - name: province_id
+        tests:
+          - not_null
+      - name: station_code
+        tests:
+          - not_null
+      - name: loaded_at
+        tests:
+          - not_null

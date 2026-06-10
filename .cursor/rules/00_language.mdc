@@ -1,0 +1,13 @@
+---
+description: Global language rules for code, variables, logs, and documentation
+globs: ["*"]
+---
+# Global Language Rules: English Only
+
+- **Code & Naming:** All variables, functions, classes, and file names MUST be written in English.
+- **Comments & Documentation:** All inline comments, docstrings, and markdown documentation MUST be in English.
+- **Logs & Output:** All `print()` statements, logging messages, and error handling outputs MUST be in English.
+- **dbt Models:** CTEs, alias names, and column renames in the `staging` and `marts` layers MUST be translated to English (e.g., use `reservoir_capacity` instead of `capacidad_embalse`).
+
+### Exception (Raw Data Handling):
+- The ONLY exception to the English rule is when extracting raw data from the Junta de Andalucía APIs. The raw JSON/CSV keys and values (e.g., `provincia`, `Sevilla`) must be ingested exactly as they come into the `raw` schema. Translation of column names should occur exclusively within the dbt `staging` layer.
