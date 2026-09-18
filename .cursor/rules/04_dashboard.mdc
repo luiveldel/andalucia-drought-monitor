@@ -1,0 +1,507 @@
+---
+description: Build the Andalusia Water Stress and Reservoir Dashboard in React
+globs: ["src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"]
+---
+
+# Andalusia Water Stress and Reservoir Dashboard
+
+## Core Instruction
+Build the dashboard immediately.
+Do not just describe the implementation.
+Do not stop at planning.
+Do not ask for missing backend details.
+Use realistic mock data and complete the first working product version.
+
+## Product Goal
+Create a premium React dashboard for Andalusia water monitoring.
+The product combines:
+- reservoir KPIs
+- drought and water stress indicators
+- province-level monitoring
+- temporal hydrology trends
+- technical reservoir detail
+
+This is not a generic admin template.
+This is not a SaaS landing page.
+This is a climate and water intelligence dashboard.
+
+The expected structure follows the reference pattern:
+- executive summary at the top
+- one main reservoir evolution chart
+- severity distribution
+- province status section
+- climate indicators
+- technical reservoirs table
+
+The attached reference dashboard follows this same sequence with top KPIs, reservoir evolution, severity distribution, province status, climate indicator blocks, and a final reservoirs table. [file:17]
+
+## Execution Mode
+- Create files directly
+- Prefer code over explanation
+- If a dependency is missing, create the simplest working version and continue
+- If data is missing, create mock data and continue
+- If styling is unclear, choose the more elegant and restrained option
+- Finish a working version before proposing extras
+- Never replace implementation with pseudocode
+- Never output only a plan when code can be written
+
+## Mandatory Stack
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- Recharts
+- React Leaflet
+- Zustand
+- TanStack Query
+- Lucide React
+- date-fns
+
+## Language Rules
+Use English only for:
+- code
+- comments
+- UI text
+- variables
+- file names
+- labels
+
+Do not generate Spanish code or Spanish UI.
+
+## Build Order
+Cursor must work in this exact order:
+
+1. project structure
+2. app shell
+3. theme and layout
+4. shared types
+5. mock data
+6. service layer
+7. KPI components
+8. main reservoir evolution chart
+9. severity distribution panel
+10. province status section
+11. insights panel
+12. climate indicators row
+13. reservoirs table
+14. responsive polish
+15. dark mode polish
+16. refactor repeated logic
+
+Do not start with API integration.
+Do not defer the UI waiting for real data.
+Build the product first.
+
+## Architecture Rules
+- Use strict TypeScript
+- Keep components small
+- Keep page files readable
+- Separate presentation from data shaping
+- Create reusable utilities for:
+  - formatting
+  - status colors
+  - severity labels
+  - chart config
+- Keep mock data separate from components
+- Keep future API integration behind service functions
+
+## Folder Structure
+Create and use this structure:
+
+src/
+  app/
+    providers/
+    routes/
+  components/
+    ui/
+    layout/
+    dashboard/
+    charts/
+    maps/
+    table/
+  features/
+    dashboard/
+    kpis/
+    reservoirs/
+    severity/
+    provinces/
+    climate/
+    insights/
+  data/
+    mock/
+  services/
+    dashboard/
+  store/
+  hooks/
+  lib/
+  types/
+
+## Design Direction
+The UI must feel:
+- premium
+- editorial
+- technical
+- trustworthy
+- modern but restrained
+- elegant and data-first
+
+It should not feel:
+- playful
+- corporate-template-like
+- over-decorated
+- startup-generic
+- overloaded with gradients or glass effects
+
+The user explicitly prefers the first dashboard aesthetic and wants that visual direction preserved. [cite:18][cite:27]
+
+## Visual System
+Use:
+- subtle borders
+- calm surfaces
+- low-noise cards
+- strong spacing rhythm
+- compact but readable density
+- large metric numerals
+- elegant charts
+- restrained icon usage
+
+Avoid:
+- glowing effects
+- large hero banners
+- decorative blobs
+- giant rounded cards everywhere
+- excessive shadows
+- overly saturated gradients
+
+## Color Rules
+Use an environmental monitoring palette:
+- off-white or slate background
+- deep water blue
+- teal accent
+- sand / warm neutral support
+- amber warning
+- red critical
+
+Severity levels:
+- normal
+- warning
+- emergency
+- critical
+
+Use the same severity mapping in:
+- KPI accents
+- province cards
+- map fills
+- legends
+- insights
+- table badges
+
+The reference layout uses a consistent severity system across the severity block and province status section. [file:17]
+
+## Typography Rules
+Use a clean, professional type hierarchy.
+Requirements:
+- strong KPI numerals
+- restrained headings
+- compact labels
+- `tabular-nums` for key values
+- no oversized marketing typography
+- dashboard readability first
+
+## Layout Rules
+
+### Desktop
+Create this sequence:
+- header
+- KPI row
+- main chart + severity panel
+- province section + insights panel
+- climate indicators row
+- reservoirs table
+
+### Mobile
+Create this sequence:
+- header
+- KPI cards
+- main chart
+- severity panel
+- province section
+- climate indicators
+- reservoirs table
+
+## Dashboard Sections
+
+### 1. Header
+Create `DashboardHeader` with:
+- title: "Andalusia Water Dashboard"
+- subtitle
+- last updated text
+- filter controls
+- theme toggle
+
+### 2. KPI Row
+Create `KpiGrid` with 5 to 6 cards:
+- Average Reservoir Fill
+- Total Stored Water
+- Water Stress Index
+- Weekly Change
+- Accumulated Rainfall
+- Provinces in Emergency
+
+Each KPI card supports:
+- label
+- value
+- unit
+- delta
+- small trend
+- optional severity chip
+
+The reference dashboard clearly begins with an executive KPI summary including average reservoir capacity, SPI, rainfall, and provinces in emergency. [file:17]
+
+### 3. Main Reservoir Evolution Chart
+Create `ReservoirEvolutionChart`.
+
+Requirements:
+- line chart
+- monthly trend
+- multiple series if useful
+- readable legend
+- compact tooltip
+- high emphasis in layout
+- this is the main visual anchor
+
+This corresponds to the central reservoir evolution block in the reference dashboard. [file:17]
+
+### 4. Severity Distribution
+Create `SeverityDistributionCard`.
+
+Show:
+- normal
+- warning
+- emergency
+- critical
+
+Each row or segment includes:
+- label
+- percentage
+- affected area if available
+
+This directly reflects the severity distribution block shown in the reference. [file:17]
+
+### 5. Province Status
+Create:
+- `ProvinceStatusGrid`
+- `ProvinceStatusMap`
+
+If a real map is not ready, implement the grid first and keep the map API ready for future Leaflet integration.
+
+Use the 8 Andalusian provinces:
+- Almería
+- Cádiz
+- Córdoba
+- Granada
+- Huelva
+- Jaén
+- Málaga
+- Sevilla
+
+Each province item shows:
+- fill percentage
+- severity
+- trend
+- concise label
+
+The reference dashboard explicitly contains an 8-province status section with level and severity. [file:17]
+
+### 6. Insights Panel
+Create `InsightsPanel`.
+Generate 3 to 5 concise messages derived from the current state.
+
+Examples:
+- "Almería remains in critical status"
+- "Western basins improved over the last week"
+- "Average storage remains below the seasonal baseline"
+- "Emergency and critical categories dominate monitored territory"
+
+### 7. Climate Indicators
+Create `ClimateIndicatorsRow` with small analytical cards for:
+- precipitation
+- max temperature anomaly
+- SPI-3 or SPI-12
+- short-term drought indicator
+
+These should look like compact analytical modules, not decorative widgets.
+
+The reference dashboard includes precipitation, temperature anomaly, and SPI metrics in separate analytical blocks. [file:17]
+
+### 8. Reservoirs Table
+Create `ReservoirTable`.
+
+Columns:
+- Reservoir
+- Basin
+- Capacity
+- Current Volume
+- Fill Level
+- Weekly Change
+- Status
+
+Requirements:
+- sticky header
+- sorting
+- search
+- compact spacing
+- row hover
+- tabular numbers
+- polished badges
+
+The reference dashboard ends with a technical “main reservoirs” table with current state and weekly variation. [file:17]
+
+## Components To Implement
+Create these components:
+- DashboardShell
+- DashboardHeader
+- GlobalFilters
+- SectionHeader
+- KpiCard
+- KpiGrid
+- ReservoirEvolutionChart
+- SeverityDistributionCard
+- ProvinceStatusGrid
+- ProvinceStatusMap
+- InsightsPanel
+- ClimateIndicatorCard
+- ClimateIndicatorsRow
+- ReservoirTable
+- StatusBadge
+- LoadingSkeleton
+- EmptyState
+
+## Type Contracts
+Use these types:
+
+```ts
+export type SeverityLevel = "normal" | "warning" | "emergency" | "critical";
+
+export interface DashboardKpi {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  delta?: number;
+  trend?: number[];
+  severity?: SeverityLevel;
+}
+
+export interface ReservoirTimePoint {
+  date: string;
+  basin: string;
+  percentage: number;
+  volumeHm3?: number;
+}
+
+export interface SeverityDistributionItem {
+  level: SeverityLevel;
+  percentage: number;
+  affectedAreaHa?: number;
+}
+
+export interface ProvinceStatus {
+  province: string;
+  fillPercentage: number;
+  severity: SeverityLevel;
+  trend?: number;
+}
+
+export interface ClimateIndicator {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  comparisonLabel?: string;
+  comparisonValue?: number;
+  series?: Array<{
+    date: string;
+    value: number;
+  }>;
+}
+
+export interface ReservoirRecord {
+  id: string;
+  reservoir: string;
+  basin: string;
+  province: string;
+  capacityHm3: number;
+  currentHm3: number;
+  fillPercentage: number;
+  weeklyChange: number;
+  status: SeverityLevel;
+}
+```
+
+## Mock Data Rules
+Generate realistic mock data for:
+- 8 Andalusian provinces
+- reservoir KPIs
+- monthly reservoir evolution
+- severity distribution
+- climate indicators
+- reservoir table
+- insights
+
+The mock data must feel coherent and internally consistent with a drought monitoring dashboard similar to the reference, which combines reservoir capacity, SPI values, rainfall, emergency counts, province severity, and reservoir records. [file:17]
+
+## State Rules
+Use Zustand only for:
+- global filters
+- selected province
+- selected severity
+- simple synchronized interactions
+
+Do not overbuild global state.
+
+## Data Access Rules
+Create async service functions even for mock data.
+
+Examples:
+- `getDashboardKpis`
+- `getReservoirEvolution`
+- `getSeverityDistribution`
+- `getProvinceStatus`
+- `getClimateIndicators`
+- `getReservoirRecords`
+
+This keeps the app ready for future real integration.
+
+## Map Rules
+The user values real map support and GeoJSON-based evolution in later phases. [cite:19]
+For now:
+- create a province visualization layer that can later be swapped to Leaflet
+- keep data shape compatible with choropleth logic
+- do not block the first version waiting for map assets
+
+## Quality Bar
+The task is not finished until:
+- the app runs
+- the page renders cleanly
+- all main sections exist
+- dark mode works
+- mobile layout works
+- mock data is coherent
+- status colors are consistent
+- the UI feels like a real product
+- there are no unfinished placeholder chunks
+
+## Hard Constraints
+- Do not produce only planning text
+- Do not generate irrelevant auth flows
+- Do not create a marketing homepage
+- Do not invent unrelated product features
+- Do not defer implementation due to missing backend details
+- Do not switch the app concept away from reservoir and drought monitoring
+
+## Final Instruction
+Create the first full working version now.
+Write the files directly.
+Prioritize a polished dashboard over commentary.

@@ -13,7 +13,7 @@ select
     trim(sistema)::varchar as water_system,
     trim(dist_dem)::varchar as hydrographic_district,
     trim(nombre_rio)::varchar as river_name,
-    geometry
+    trim(geom)::varchar as geometry_wkt,
     trim(nom_pres)::varchar as dam_name,
     _loaded_at as loaded_at
 from source

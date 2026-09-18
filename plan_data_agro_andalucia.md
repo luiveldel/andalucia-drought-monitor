@@ -26,7 +26,7 @@ Andalucía se enfrenta de forma recurrente a crisis hídricas severas que afecta
 Para garantizar un flujo ordenado, histórico y tolerante a fallos, el Data Warehouse local (PostgreSQL + PostGIS) se estructura en esquemas lógicos gestionados de forma secuencial por dbt, aplicando una estricta convención de nomenclatura industrial en inglés:
 
 ```text
-[Airflow Ingest] ──> RAW (Bronze) ──> STAGING (Silver) ──> INTERMEDIATE (Silver Guard) ──> MARTS (Gold) ──> [Reflex UI]
+[Airflow Ingest] ──> RAW (Bronze) ──> STAGING (Silver) ──> INTERMEDIATE (Silver Guard) ──> MARTS (Gold) ──> [React UI + FastAPI]
 ```
 
 1. **Capa Bronze (Esquema: `raw`):**
@@ -48,7 +48,7 @@ Para garantizar un flujo ordenado, histórico y tolerante a fallos, el Data Ware
 * **Ingesta:** Scripts nativos en Python (Polars para manejo de memoria ultrarrápido + SQLAlchemy).
 * **Data Warehouse:** PostgreSQL 16 (con soporte opcional para PostGIS para análisis espacial).
 * **Transformación y Modelado:** dbt Core (v1.7 o superior) ejecutado localmente o mediante la CLI de dbt.
-* **Capa de Visualización (BI)** Reflex Dashboard App (Framework Full-Stack en Python embebido con Next.js, Tailwind CSS, Recharts y Plotly Express), sustituyendo herramientas rígidas externas por código modular.
+* **Capa de Visualización (BI)** React (Vite/TS) + Tailwind + FastAPI (`dashboard-frontend` / `dashboard-api`), datos solo vía HTTP desde marts.
 *
 ---
 
@@ -94,9 +94,8 @@ agro-sequia-andalucia/
 │           ├── dim_provinces_geo.sql       # Extracción de centroides con PostGIS
 │           ├── fact_drought_daily.sql
 │           └── fact_drought_alert.sql
-├── dashboard/
-│   ├── rxconfig.py                        # Configuración del servidor Reflex
-│   ├── requirements.txt                   # Pandas, Plotly, SQLAlchemy, Reflex
+├── dashboard-api/                         # FastAPI, SQLAlchemy, solo marts
+├── dashboard-frontend/                    # Vite + React + TypeScript + Tailwind
 │   └── app/
 │       ├── app.py                         # Layout principal, Estado y Mapa interactivo
 │       ├── components.py                  # KPI Cards, Donut semántico y Tablas en Dark Mode
