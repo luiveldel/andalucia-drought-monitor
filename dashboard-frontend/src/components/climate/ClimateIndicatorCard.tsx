@@ -1,29 +1,59 @@
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  WATER_FILL_BOTTOM,
+  WATER_FILL_MID,
+  WATER_FILL_TOP,
+  WATER_STROKE,
+} from "@/lib/water-chart";
 import type { ClimateIndicator } from "@/types/dashboard-model";
-import { ResponsiveContainer, Area, AreaChart } from "recharts";
+import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
 export function ClimateIndicatorCard(props: { indicator: ClimateIndicator }) {
   const { indicator } = props;
   const data = (indicator.series ?? []).map((p) => ({ ...p }));
+  const gradId = `climate-water-${indicator.id}`;
+
   return (
     <Card className="min-h-[140px]">
       <CardContent className="p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted dark:text-muted-dark">{indicator.label}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted dark:text-muted-dark">
+          {indicator.label}
+        </p>
         <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-ink dark:text-ink-dark">
           {indicator.value.toLocaleString("en-GB", { maximumFractionDigits: 2 })}
-          {indicator.unit ? <span className="ml-1 text-sm font-medium text-muted">{indicator.unit}</span> : null}
+          {indicator.unit ? (
+            <span className="ml-1 text-sm font-medium text-muted">{indicator.unit}</span>
+          ) : null}
         </p>
         {indicator.comparisonLabel !== undefined && indicator.comparisonValue !== undefined ? (
           <p className="mt-1 text-xs text-muted dark:text-muted-dark">
             {indicator.comparisonLabel}:{" "}
-            <span className="font-medium tabular-nums text-ink dark:text-ink-dark">{indicator.comparisonValue}</span>
+            <span className="font-medium tabular-nums text-ink dark:text-ink-dark">
+              {indicator.comparisonValue}
+            </span>
           </p>
         ) : null}
         {data.length > 1 ? (
           <div className="mt-2 h-12 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
-                <Area type="monotone" dataKey="value" stroke="#1A6FA3" fill="#1A6FA333" strokeWidth={1} />
+              <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={WATER_FILL_TOP} />
+                    <stop offset="55%" stopColor={WATER_FILL_MID} />
+                    <stop offset="100%" stopColor={WATER_FILL_BOTTOM} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={WATER_STROKE}
+                  strokeWidth={1.5}
+                  fill={`url(#${gradId})`}
+                  fillOpacity={1}
+                  dot={false}
+                  isAnimationActive={false}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>

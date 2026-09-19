@@ -1,12 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/i18n/useT";
+import {
+  WATER_FILL_BOTTOM,
+  WATER_FILL_MID,
+  WATER_FILL_TOP,
+  WATER_STROKE,
+} from "@/lib/water-chart";
 import type { ReservoirTimePoint } from "@/types/dashboard-model";
 import { useMemo } from "react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,6 +36,8 @@ export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
       }));
   }, [props.data]);
 
+  const gradId = "reservoir-fill-water";
+
   return (
     <Card className="min-h-[320px]">
       <CardHeader>
@@ -38,7 +46,14 @@ export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
       </CardHeader>
       <CardContent className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={WATER_FILL_TOP} />
+                <stop offset="50%" stopColor={WATER_FILL_MID} />
+                <stop offset="100%" stopColor={WATER_FILL_BOTTOM} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-black/10 dark:stroke-white/10" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} tickMargin={6} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={32} unit="%" />
@@ -48,8 +63,19 @@ export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
               labelFormatter={(l) => String(l)}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="avg" name={t("chart.series")} stroke="#1A6FA3" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-          </LineChart>
+            <Area
+              type="monotone"
+              dataKey="avg"
+              name={t("chart.series")}
+              stroke={WATER_STROKE}
+              strokeWidth={2}
+              fill={`url(#${gradId})`}
+              fillOpacity={1}
+              dot={{ r: 3, strokeWidth: 1, fill: "#fff" }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

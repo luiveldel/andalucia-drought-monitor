@@ -453,7 +453,7 @@ def load_dashboard_data() -> dict[str, Any]:
             f"""
             SELECT observation_date::text AS d, ROUND(AVG(avg_precipitation_mm)::numeric, 2)::float AS v
             FROM {MARTS_SCHEMA}.fact_drought_daily
-            WHERE observation_date >= :latest_date - INTERVAL '45 days'
+            WHERE observation_date >= :latest_date - INTERVAL '400 days'
             GROUP BY observation_date
             ORDER BY observation_date
             """,
@@ -465,7 +465,7 @@ def load_dashboard_data() -> dict[str, Any]:
             f"""
             SELECT observation_date::text AS d, ROUND(AVG(daily_water_deficit_mm)::numeric, 2)::float AS v
             FROM {MARTS_SCHEMA}.fact_drought_daily
-            WHERE observation_date >= :latest_date - INTERVAL '45 days'
+            WHERE observation_date >= :latest_date - INTERVAL '400 days'
             GROUP BY observation_date
             ORDER BY observation_date
             """,
@@ -477,7 +477,7 @@ def load_dashboard_data() -> dict[str, Any]:
             f"""
             SELECT observation_date::text AS d, ROUND(AVG(hydric_stress_index)::numeric, 3)::float AS v
             FROM {MARTS_SCHEMA}.fact_drought_daily
-            WHERE observation_date >= :latest_date - INTERVAL '45 days'
+            WHERE observation_date >= :latest_date - INTERVAL '400 days'
             GROUP BY observation_date
             ORDER BY observation_date
             """,
@@ -579,7 +579,7 @@ def load_dashboard_data() -> dict[str, Any]:
             f"""
             SELECT observation_date::text AS d, ROUND(AVG(hydric_stress_index)::numeric, 3)::float AS v
             FROM {MARTS_SCHEMA}.fact_drought_daily
-            WHERE observation_date >= :latest_date - INTERVAL '90 days'
+            WHERE observation_date >= :latest_date - INTERVAL '400 days'
             GROUP BY observation_date
             ORDER BY observation_date
             """,
