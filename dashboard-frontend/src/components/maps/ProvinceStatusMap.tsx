@@ -6,7 +6,9 @@ import L from "leaflet";
 import { useEffect, useMemo, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
-const TILE = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const CARTO_KEY = (import.meta.env.VITE_CARTO_API_KEY as string | undefined)?.trim() || "";
+const TILE_BASE = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE = CARTO_KEY ? `${TILE_BASE}?api_key=${encodeURIComponent(CARTO_KEY)}` : TILE_BASE;
 const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO';
 
 function norm(s: string) {

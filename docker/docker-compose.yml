@@ -140,8 +140,11 @@ services:
     container_name: agro-dashboard-frontend
     ports:
       - "5173:5173"
+    env_file:
+      - ../.env
     environment:
       VITE_PROXY_TARGET: http://dashboard-api:8000
+      VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
     depends_on:
       - dashboard-api
     networks:
