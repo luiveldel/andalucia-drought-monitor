@@ -64,25 +64,28 @@ export function DashboardPage() {
           </div>
         </section>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-2">
+        {/* Left column matches chart width; sidebar gets full stacked height for insights */}
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+          <div className="space-y-6 xl:col-span-2">
             <ReservoirEvolutionChart data={data.evolution} />
+            <section>
+              <SectionHeader
+                title="Estado provincial"
+                description="Ocho provincias andaluzas: llenado, severidad y tendencia."
+              />
+              <div className="mt-3">
+                <ProvinceStatusGrid provinces={data.provinces} />
+              </div>
+            </section>
           </div>
-          <div className="flex flex-col gap-4">
+          <aside className="flex min-h-0 flex-col gap-4 xl:sticky xl:top-4">
             <SeverityDistributionCard items={data.severity} />
             <InsightsPanel insights={data.insights} />
-          </div>
+          </aside>
         </div>
 
-        <section className="space-y-4">
-          <SectionHeader
-            title="Estado provincial"
-            description="Ocho provincias andaluzas: llenado, severidad y tendencia."
-          />
-          <ProvinceStatusGrid provinces={data.provinces} />
-          <div className="w-full">
-            <ProvinceStatusMap provinces={data.provinces} />
-          </div>
+        <section className="w-full">
+          <ProvinceStatusMap provinces={data.provinces} />
         </section>
 
         <ClimateIndicatorsRow indicators={data.climate} />
