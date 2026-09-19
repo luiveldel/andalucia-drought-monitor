@@ -12,6 +12,13 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // VPS / Caddy: allow public Host header (otherwise Vite returns 403)
+    allowedHosts: [
+      "andalucia.luisandresvelazquez.com",
+      ".luisandresvelazquez.com",
+      "localhost",
+      "agro-dashboard-frontend",
+    ],
     proxy: {
       "/api": { target: proxyTarget, changeOrigin: true },
       "/health": { target: proxyTarget, changeOrigin: true },
