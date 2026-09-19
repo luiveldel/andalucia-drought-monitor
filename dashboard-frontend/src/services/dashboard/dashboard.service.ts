@@ -124,13 +124,6 @@ function buildKpis(api: ApiPayload): DashboardKpi[] {
       trend: sparkValues(api.sparkline_stress),
       severity: Number(api.avg_stress ?? 0) >= 0.7 ? "emergency" : "warning",
     },
-    {
-      id: "provinces",
-      label: "Provincias en alerta",
-      value: Number(api.provinces_in_alert ?? 0),
-      unit: "de 8",
-      severity: Number(api.provinces_in_alert ?? 0) >= 4 ? "emergency" : "warning",
-    },
   ];
   const spiVal = api.spi?.regional_spi;
   if (spiVal != null && Number.isFinite(spiVal)) {
