@@ -277,6 +277,7 @@ export interface MeteoForecastCurrent {
   humidity_pct?: number | null;
   precip_probability?: number | null;
   pressure_hpa?: number | null;
+  pressure_source?: string | null;
   wind_speed?: number | null;
   wind_dir?: number | null;
   uv_index?: number | null;

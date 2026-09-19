@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { ReservoirEvolutionChart } from "@/components/charts/ReservoirEvolutionChart";
 import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow";
 import { ExploitationSystemsPanel } from "@/components/climate/ExploitationSystemsPanel";
 import { HeatStressPanel } from "@/components/climate/HeatStressPanel";
+import { ClimateSubNav, type ClimateSubTab } from "@/components/climate/ClimateSubNav";
 import { ForecastPanel } from "@/components/climate/ForecastPanel";
 import { MonthlyAnomalyPanel } from "@/components/climate/MonthlyAnomalyPanel";
 import { ObservedMeteoPanel } from "@/components/climate/ObservedMeteoPanel";
@@ -29,6 +31,7 @@ export function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboardQuery();
   const tab = useTabsStore((s) => s.tab);
   const t = useT();
+  const [climateSub, setClimateSub] = useState<ClimateSubTab>("forecast");
 
   if (isLoading) {
     return (
@@ -105,18 +108,24 @@ export function DashboardPage() {
         ) : null}
 
         {tab === "climate" ? (
-          <>
-            <ObservedMeteoPanel meteo={data.meteoObserved} />
-            <ForecastPanel forecast={data.meteoForecast} />
-            <SpiPanel spi={data.spi} />
-            <ClimateIndicatorsRow indicators={data.climate} />
-            <MonthlyAnomalyPanel
-              monthlyPrecip={data.monthlyPrecip}
-              tempAnomaly={data.tempAnomaly}
-            />
-            <HeatStressPanel heatStress={data.heatStress} />
-            <ExploitationSystemsPanel systems={data.exploitationSystems} />
-          </>
+          <div className="space-y-6">
+            <ClimateSubNav value={climateSub} onChange={setClimateSub} />
+            {climateSub === "forecast" ? (
+              <ForecastPanel forecast={data.meteoForecast} />
+            ) : (
+              <>
+                <ObservedMeteoPanel meteo={data.meteoObserved} />
+                <SpiPanel spi={data.spi} />
+                <ClimateIndicatorsRow indicators={data.climate} />
+                <MonthlyAnomalyPanel
+                  monthlyPrecip={data.monthlyPrecip}
+                  tempAnomaly={data.tempAnomaly}
+                />
+                <HeatStressPanel heatStress={data.heatStress} />
+                <ExploitationSystemsPanel systems={data.exploitationSystems} />
+              </>
+            )}
+          </div>
         ) : null}
 
         {tab === "compare" ? (

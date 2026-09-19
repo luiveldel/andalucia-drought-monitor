@@ -58,6 +58,11 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
                   <p>
                     <span className="text-muted dark:text-muted-dark">Presión </span>
                     <span className="tabular-nums font-medium">{fmt(c.pressure_hpa, " hPa", 0)}</span>
+                    {c.pressure_source ? (
+                      <span className="ml-1 text-[10px] text-muted dark:text-muted-dark">
+                        ({c.pressure_source})
+                      </span>
+                    ) : null}
                   </p>
                   <p>
                     <span className="text-muted dark:text-muted-dark">Viento </span>

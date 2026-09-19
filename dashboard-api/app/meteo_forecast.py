@@ -483,6 +483,39 @@ def _load_open_meteo() -> dict[str, Any]:
     }
 
 
+
+def _open_meteo_current_pressure() -> float | None:
+    """Lightweight fetch of surface pressure (hPa) for Andalucía centroid."""
+    params = {
+        "latitude": OM_LAT,
+        "longitude": OM_LON,
+        "timezone": TZ,
+        "current": "surface_pressure",
+    }
+    url = "https://api.open-meteo.com/v1/forecast?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": "andalucia-drought-monitor/1.0"})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        raw = json.loads(resp.read().decode("utf-8"))
+    return _num((raw.get("current") or {}).get("surface_pressure"))
+
+
+def _enrich_pressure_from_open_meteo(payload: dict[str, Any]) -> dict[str, Any]:
+    """Fill missing pressure on AEMET (or any) forecast current from Open-Meteo."""
+    current = payload.get("current")
+    if not isinstance(current, dict):
+        return payload
+    if current.get("pressure_hpa") is not None:
+        return payload
+    try:
+        pressure = _open_meteo_current_pressure()
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, TypeError, ValueError):
+        return payload
+    if pressure is None:
+        return payload
+    current = {**current, "pressure_hpa": pressure, "pressure_source": "Open-Meteo"}
+    return {**payload, "current": current}
+
+
 def load_meteo_forecast() -> dict[str, Any]:
     now = time.time()
     if _cache["payload"] is not None and (now - float(_cache["ts"])) < CACHE_TTL_SEC:
@@ -494,6 +527,7 @@ def load_meteo_forecast() -> dict[str, Any]:
     if api_key:
         try:
             payload = _load_aemet(api_key)
+            payload = _enrich_pressure_from_open_meteo(payload)
         except (urllib.error.URLError, TimeoutError, OSError, RuntimeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             try:
                 payload = _load_open_meteo()
