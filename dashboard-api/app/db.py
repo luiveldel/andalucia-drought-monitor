@@ -59,6 +59,8 @@ def _empty_payload() -> dict[str, Any]:
         "basin_series": [],
         "monthly_precip": [],
         "temp_anomaly": [],
+        "heat_stress": {"available": False, "as_of": None, "latest": [], "recent_days": []},
+        "exploitation_systems": {"available": False, "as_of": None, "systems": []},
         "stress_evolution": [],
         "reservoir_rows": [],
         "province_map_kpis": [],
@@ -574,6 +576,11 @@ def load_dashboard_data() -> dict[str, Any]:
             """,
         )
 
+        from app.climate_extras import load_exploitation_systems, load_heat_stress
+
+        heat_stress = load_heat_stress(conn)
+        exploitation_systems = load_exploitation_systems(conn)
+
         stress_evolution = _rows(
             conn,
             f"""
@@ -757,6 +764,8 @@ def load_dashboard_data() -> dict[str, Any]:
             "basin_series": basin_series,
             "monthly_precip": monthly_precip,
             "temp_anomaly": temp_anomaly,
+            "heat_stress": heat_stress,
+            "exploitation_systems": exploitation_systems,
             "stress_evolution": stress_evolution,
             "reservoir_rows": reservoir_rows,
             "province_map_kpis": province_map_kpis,

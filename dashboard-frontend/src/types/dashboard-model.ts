@@ -108,6 +108,10 @@ export interface DashboardSnapshot {
   riskBoard: RiskBoardRow[];
   dataNotes: string[];
   spi?: SpiSnapshot;
+  monthlyPrecip: MonthlyPrecipPoint[];
+  tempAnomaly: TempAnomalyPoint[];
+  heatStress: HeatStressSnapshot;
+  exploitationSystems: ExploitationSystemsSnapshot;
 }
 
 
@@ -161,4 +165,61 @@ export interface ProvinceCompareResponse {
   a: ProvinceCompareSide;
   b: ProvinceCompareSide;
   labels_es: Record<string, string>;
+}
+
+export interface MonthlyPrecipPoint {
+  calendar_year: number;
+  calendar_month: number;
+  avg_mm: number;
+}
+
+export interface TempAnomalyPoint {
+  calendar_year: number;
+  calendar_month: number;
+  avg_temp: number;
+  baseline_temp: number;
+  anomaly: number;
+}
+
+export interface HeatStressProvinceRow {
+  observation_date: string;
+  province_name: string;
+  stations_in_heat_stress: number;
+  avg_max_temp_c: number;
+  avg_min_humidity_pct?: number;
+  reservoir_fill_pct?: number;
+  daily_water_deficit_mm?: number;
+  agricultural_risk_index: number;
+}
+
+export interface HeatStressDayRollup {
+  observation_date: string;
+  provinces_affected: number;
+  stations_in_heat_stress: number;
+  avg_max_temp_c: number;
+  agricultural_risk_index: number;
+}
+
+export interface HeatStressSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  latest: HeatStressProvinceRow[];
+  recent_days: HeatStressDayRollup[];
+}
+
+export interface ExploitationSystemRow {
+  calendar_year: number;
+  calendar_month: number;
+  exploitation_system: string;
+  watershed_demarcation: string;
+  active_reservoirs: number;
+  total_stored_hm3: number;
+  total_capacity_hm3: number;
+  system_fill_pct: number;
+}
+
+export interface ExploitationSystemsSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  systems: ExploitationSystemRow[];
 }

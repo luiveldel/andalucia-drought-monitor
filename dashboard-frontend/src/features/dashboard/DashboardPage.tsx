@@ -1,5 +1,8 @@
 import { ReservoirEvolutionChart } from "@/components/charts/ReservoirEvolutionChart";
 import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow";
+import { ExploitationSystemsPanel } from "@/components/climate/ExploitationSystemsPanel";
+import { HeatStressPanel } from "@/components/climate/HeatStressPanel";
+import { MonthlyAnomalyPanel } from "@/components/climate/MonthlyAnomalyPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -103,6 +106,12 @@ export function DashboardPage() {
           <>
             <SpiPanel spi={data.spi} />
             <ClimateIndicatorsRow indicators={data.climate} />
+            <MonthlyAnomalyPanel
+              monthlyPrecip={data.monthlyPrecip}
+              tempAnomaly={data.tempAnomaly}
+            />
+            <HeatStressPanel heatStress={data.heatStress} />
+            <ExploitationSystemsPanel systems={data.exploitationSystems} />
           </>
         ) : null}
 
