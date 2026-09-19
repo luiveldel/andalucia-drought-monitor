@@ -242,14 +242,19 @@ def load_dashboard_data() -> dict[str, Any]:
             {"latest_date": latest_date},
         ).one_or_none()
 
-        alert_count = conn.execute(
-            text(
-                f"""
-                SELECT COUNT(DISTINCT province_name)::int AS c
-                FROM {MARTS_SCHEMA}.fact_drought_alert
-                """
-            )
-        ).scalar() or 0
+        try:
+            alert_count = conn.execute(
+                text(
+                    f"""
+                    SELECT COUNT(DISTINCT province_name)::int AS c
+                    FROM {MARTS_SCHEMA}.fact_drought_alert
+                    """
+                )
+            ).scalar() or 0
+        except Exception:
+            # mart may be absent until dbt builds drought alerts
+            conn.rollback()
+            alert_count = 0
 
         precip_30d = conn.execute(
             text(
