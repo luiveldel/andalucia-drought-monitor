@@ -113,7 +113,7 @@ export function DashboardSidebar() {
           <p className="px-1 text-[9px] leading-snug text-muted dark:text-muted-dark">
             <a
               className="underline-offset-2 hover:underline"
-              href="https://commons.wikimedia.org/wiki/File:Emblema_de_la_Junta_de_Andaluc%C3%ADa_2020.svg"
+              href="https://github.com/luiveldel"
               target="_blank"
               rel="noreferrer"
             >
