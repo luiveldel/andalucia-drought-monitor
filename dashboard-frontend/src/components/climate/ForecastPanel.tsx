@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { weatherEmoji } from "@/components/climate/weatherIcons";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Card, CardContent } from "@/components/ui/card";
+import { CLIMATE_REGIONAL, type ClimateProvince } from "@/constants/provinces";
 import { cn } from "@/lib/utils";
+import { fetchMeteoForecast } from "@/services/dashboard/dashboard.service";
 import type { MeteoForecastSnapshot } from "@/types/dashboard-model";
 
 function fmt(n: number | null | undefined, unit = "", digits = 1): string {
@@ -14,23 +17,61 @@ function hourLabel(iso: string): string {
   return (part ?? "").slice(0, 5);
 }
 
-export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
-  const f = props.forecast;
+export function ForecastPanel(props: {
+  /** Baseline forecast from the dashboard payload (Andalucía). */
+  forecast: MeteoForecastSnapshot;
+  province: ClimateProvince;
+}) {
+  const [live, setLive] = useState<MeteoForecastSnapshot | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (props.province === CLIMATE_REGIONAL) {
+      setLive(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    void fetchMeteoForecast(props.province)
+      .then((data) => {
+        if (!cancelled) setLive(data);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Error de forecast");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.province]);
+
+  const f = props.province === CLIMATE_REGIONAL ? props.forecast : (live ?? props.forecast);
   const c = f.current;
 
   return (
     <section className="space-y-3">
       <SectionHeader
         title={`Pronóstico ${f.source || "externo"}`}
-        description={`${f.location_label ?? ""} · fuente externa (no RIA). Horario del día en curso y resumen a 7 días.`}
+        description={`${f.location_label ?? props.province} · fuente externa (no RIA). Horario del día en curso y resumen a 7 días.`}
       />
       <Card>
         <CardContent className="space-y-4 pt-4">
-          {!f.available || !c ? (
+          {loading ? (
+            <p className="text-sm text-muted dark:text-muted-dark">Cargando pronóstico de {props.province}…</p>
+          ) : null}
+          {error ? <p className="text-sm text-sev-critical">{error}</p> : null}
+          {!loading && (!f.available || !c) ? (
             <p className="text-sm text-muted dark:text-muted-dark">
               Pronóstico no disponible{f.error ? `: ${f.error}` : "."}
             </p>
-          ) : (
+          ) : null}
+          {!loading && f.available && c ? (
             <>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -53,7 +94,9 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
                   </p>
                   <p>
                     <span className="text-muted dark:text-muted-dark">Prob. lluvia </span>
-                    <span className="tabular-nums font-medium">{fmt(c.precip_probability, " %", 0)}</span>
+                    <span className="tabular-nums font-medium">
+                      {fmt(c.precip_probability, " %", 0)}
+                    </span>
                   </p>
                   <p>
                     <span className="text-muted dark:text-muted-dark">Presión </span>
@@ -74,7 +117,9 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
                       className={cn(
                         "tabular-nums font-medium",
                         (c.uv_index ?? 0) >= 8 && "text-red-700 dark:text-red-300",
-                        (c.uv_index ?? 0) >= 6 && (c.uv_index ?? 0) < 8 && "text-amber-700 dark:text-amber-200",
+                        (c.uv_index ?? 0) >= 6 &&
+                          (c.uv_index ?? 0) < 8 &&
+                          "text-amber-700 dark:text-amber-200",
                       )}
                     >
                       {fmt(c.uv_index, "", 1)}
@@ -83,44 +128,23 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
                 </div>
               </div>
 
-              {(f.alerts ?? []).length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {f.alerts.map((a) => (
-                    <li
-                      key={`${a.code}-${a.title_es}`}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-xs font-medium",
-                        a.severity === "critical" && "bg-red-600/15 text-red-800 dark:text-red-200",
-                        a.severity === "warning" && "bg-amber-500/15 text-amber-900 dark:text-amber-100",
-                        a.severity === "info" && "bg-sky-500/15 text-sky-900 dark:text-sky-100",
-                      )}
-                      title={a.detail_es}
-                    >
-                      {a.title_es}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              {(f.hourly_today ?? []).length > 0 ? (
+              {((f.hourly_today ?? []).length > 0) ? (
                 <div>
                   <p className="mb-2 text-[11px] uppercase tracking-wide text-muted dark:text-muted-dark">
-                    Hoy por horas
+                    Hoy (horario)
                   </p>
                   <div className="flex gap-2 overflow-x-auto pb-1">
-                    {f.hourly_today.map((h) => (
+                    {(f.hourly_today ?? []).map((h) => (
                       <div
                         key={h.time}
-                        className="min-w-[4.25rem] shrink-0 rounded-xl border border-black/5 bg-white/50 px-2 py-2 text-center dark:border-white/10 dark:bg-white/5"
+                        className="min-w-[4.5rem] rounded-lg border border-black/5 px-2 py-2 text-center dark:border-white/10"
                       >
-                        <p className="text-[11px] tabular-nums text-muted dark:text-muted-dark">
-                          {hourLabel(h.time)}
-                        </p>
+                        <p className="text-[10px] text-muted dark:text-muted-dark">{hourLabel(h.time)}</p>
                         <p className="text-lg" aria-hidden>
                           {weatherEmoji(h.condition)}
                         </p>
                         <p className="text-sm font-semibold tabular-nums">{fmt(h.temp_c, "°", 0)}</p>
-                        <p className="text-[10px] tabular-nums text-sky-700 dark:text-sky-300">
+                        <p className="text-[10px] tabular-nums text-muted dark:text-muted-dark">
                           {fmt(h.precip_probability, "%", 0)}
                         </p>
                       </div>
@@ -129,53 +153,33 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
                 </div>
               ) : null}
 
-              {(f.daily ?? []).length > 0 ? (
+              {((f.daily ?? []).length > 0) ? (
                 <div>
                   <p className="mb-2 text-[11px] uppercase tracking-wide text-muted dark:text-muted-dark">
-                    Próximos 7 días
+                    Próximos días
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-                    {f.daily.map((d) => (
-                      <div
-                        key={d.date}
-                        className="rounded-xl border border-black/5 bg-white/50 p-2.5 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <p className="text-[11px] tabular-nums text-muted dark:text-muted-dark">
+                  <ul className="divide-y divide-black/5 dark:divide-white/10">
+                    {(f.daily ?? []).map((d) => (
+                      <li key={d.date} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="w-24 tabular-nums text-muted dark:text-muted-dark">
                           {d.date.slice(5)}
-                        </p>
-                        <p className="my-1 text-2xl" aria-hidden>
+                        </span>
+                        <span className="text-lg" aria-hidden>
                           {weatherEmoji(d.condition)}
-                        </p>
-                        <p className="text-sm font-semibold tabular-nums">
-                          {fmt(d.t_max, "°", 0)} / {fmt(d.t_min, "°", 0)}
-                        </p>
-                        <p className="mt-1 text-[11px] text-muted dark:text-muted-dark">
+                        </span>
+                        <span className="flex-1 text-muted dark:text-muted-dark">
                           {d.condition_label_es}
-                        </p>
-                        <p className="text-[11px] tabular-nums text-sky-700 dark:text-sky-300">
-                          {fmt(d.precip_sum, " mm", 1)} · UV {fmt(d.uv_index_max, "", 0)}
-                        </p>
-                      </div>
+                        </span>
+                        <span className="tabular-nums font-medium">
+                          {fmt(d.t_min, "°", 0)} / {fmt(d.t_max, "°", 0)}
+                        </span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               ) : null}
             </>
-          )}
-
-          <p className="text-xs text-muted dark:text-muted-dark">
-            Datos de{" "}
-            <a
-              className="underline underline-offset-2"
-              href={f.attribution || "https://opendata.aemet.es/"}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {f.source || "fuente externa"}
-            </a>
-            {f.error ? ` · ${f.error}` : null}
-            {f.generated_at ? ` · actualizado ${f.generated_at.slice(0, 16).replace("T", " ")}` : null}
-          </p>
+          ) : null}
         </CardContent>
       </Card>
     </section>

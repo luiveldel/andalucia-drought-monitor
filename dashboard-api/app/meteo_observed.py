@@ -169,6 +169,7 @@ def load_meteo_observed(conn: Connection, trend_days: int = 14) -> dict[str, Any
         "regional": None,
         "by_province": [],
         "trend_days": [],
+        "trend_by_province": {},
         "alerts": [],
     }
     try:
@@ -236,7 +237,7 @@ def load_meteo_observed(conn: Connection, trend_days: int = 14) -> dict[str, Any
             packed["province_name"] = p["province_name"]
             provinces_out.append(packed)
 
-        # Sparse RIA history: take the last N observation days that exist, not a calendar window.
+        # Sparse RIA history: last N observation days that exist (not a calendar window).
         trend = _rows(
             conn,
             f"""
@@ -268,6 +269,54 @@ def load_meteo_observed(conn: Connection, trend_days: int = 14) -> dict[str, Any
             days=int(trend_days),
         )
 
+        trend_prov_rows = _rows(
+            conn,
+            f"""
+            WITH daily AS (
+                SELECT
+                    ds.province_name,
+                    dd.observation_date,
+                    ROUND(AVG(fc.mean_temperature_c)::numeric, 1)::float AS mean_temp_c,
+                    ROUND(AVG(fc.mean_humidity_pct)::numeric, 1)::float AS mean_humidity_pct,
+                    ROUND(AVG(fc.precipitation_mm)::numeric, 2)::float AS precip_mm
+                FROM {MARTS_SCHEMA}.fact_climate_daily AS fc
+                INNER JOIN {MARTS_SCHEMA}.dim_date AS dd ON fc.date_key = dd.date_key
+                INNER JOIN {MARTS_SCHEMA}.dim_stations AS ds ON fc.station_key = ds.station_key
+                WHERE dd.observation_date <= CAST(:as_of AS date)
+                GROUP BY ds.province_name, dd.observation_date
+            ),
+            ranked AS (
+                SELECT *,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY province_name ORDER BY observation_date DESC
+                       ) AS rn
+                FROM daily
+            )
+            SELECT
+                province_name,
+                observation_date::text AS date,
+                mean_temp_c,
+                mean_humidity_pct,
+                precip_mm
+            FROM ranked
+            WHERE rn <= :days
+            ORDER BY province_name, observation_date
+            """,
+            as_of=as_of,
+            days=int(trend_days),
+        )
+        trend_by_province: dict[str, list[dict[str, Any]]] = {}
+        for row in trend_prov_rows:
+            name = row["province_name"]
+            trend_by_province.setdefault(name, []).append(
+                {
+                    "date": row["date"],
+                    "mean_temp_c": row["mean_temp_c"],
+                    "mean_humidity_pct": row["mean_humidity_pct"],
+                    "precip_mm": row["precip_mm"],
+                }
+            )
+
         alerts = _build_alerts(regional, provinces_out)
         return {
             "available": True,
@@ -277,6 +326,7 @@ def load_meteo_observed(conn: Connection, trend_days: int = 14) -> dict[str, Any
             "regional": regional,
             "by_province": provinces_out,
             "trend_days": trend,
+            "trend_by_province": trend_by_province,
             "alerts": alerts,
         }
     except Exception as exc:  # noqa: BLE001 — soft-fail for dashboard
