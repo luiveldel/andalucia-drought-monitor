@@ -113,29 +113,48 @@ services:
     networks:
       - agro-network
 
-  reflex-dashboard:
+  dashboard-api:
     build:
-      context: ./dashboard
+      context: ../dashboard-api
       dockerfile: Dockerfile
-    container_name: agro-reflex-dashboard
+    container_name: agro-dashboard-api
     ports:
-      - "3000:3000" # Frontend de Reflex
-      - "8000:8000" # Backend de Reflex
-    dns:
-      - 8.8.8.8
+      - "8000:8000"
+    env_file:
+      - path: ../.env
+        required: false
     environment:
-      HOSTNAME: "0.0.0.0"
       POSTGRES_DWH_HOST: postgres
       POSTGRES_DWH_PORT: "5432"
       POSTGRES_DWH_DB: agro_sequia
       POSTGRES_DWH_USER: dwh_user
       POSTGRES_DWH_PASSWORD: dwh_password
       POSTGRES_DWH_SCHEMA: marts
-    volumes:
-      - ./dashboard:/app # <-- ¡Esto activa el hot-reloading para que el código en vivo se refleje en la web!
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - agro-network
+
+  dashboard-frontend:
+    build:
+      context: ../dashboard-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
+    container_name: agro-dashboard-frontend
+    ports:
+      - "5173:5173"
+    # Relative to this compose file (docker/). Put secrets in repo-root .env
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      VITE_PROXY_TARGET: http://dashboard-api:8000
+      VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
+    depends_on:
+      - dashboard-api
     networks:
       - agro-network
 

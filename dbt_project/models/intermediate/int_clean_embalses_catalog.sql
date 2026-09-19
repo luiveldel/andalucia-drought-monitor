@@ -19,14 +19,14 @@ deduplicated as (
 
 select
     fid,
-    reservoir_id,
+    reservoir_id as reservoir_code,
     reservoir_type,
     reservoir_name,
-    province,
-    water_system,
-    hydrographic_district,
+    province as province_name,
+    water_system as exploitation_system,
+    hydrographic_district as watershed_demarcation,
     river_name,
-    geometry,
+    geometry_wkt,
     dam_name,
     loaded_at
 from deduplicated

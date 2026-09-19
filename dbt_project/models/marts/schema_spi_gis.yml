@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: fact_spi_provisional
+    description: >
+      Provisional SPI (target 12-month window) per province/month.
+      Short climate series → is_provisional=true; not a WMO-grade SPI-12.
+    columns:
+      - name: province_name
+        tests:
+          - not_null
+      - name: month_start
+        tests:
+          - not_null
+      - name: spi_value
+        description: Z-score of rolling precip vs province sample (provisional).
+      - name: is_provisional
+        tests:
+          - not_null
+      - name: window_months
+        description: Actual accumulation window (≤12).
+      - name: calibration_months
+        description: Months of precip history used for mean/stddev.
+
+  - name: dim_provinces_polygons
+    description: >
+      Andalusian province polygons (simplified) from raw GIS agricultural zones /
+      province boundaries. Complements dim_provinces_geo (centroids only).
+    columns:
+      - name: province_id
+        tests:
+          - not_null
+      - name: province_name
+        tests:
+          - not_null
+      - name: geojson
+        tests:
+          - not_null

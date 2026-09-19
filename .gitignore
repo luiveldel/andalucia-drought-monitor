@@ -1,5 +1,15 @@
-dbt_project/target/
+
+airflow_workspace/logs/
+dashboard-frontend/dist/
+dashboard-frontend/node_modules/
+dashboard-frontend/public/brand/emblema-junta-andalucia.full.svg
 dbt_project/dbt_packages/
 dbt_project/logs/
+dbt_project/target/
 dbt_project/.user.yml
-airflow_workspace/logs/
+.env
+!.env.example
+.node_modules/
+*.pyc
+__pycache__/
+*.tsbuildinfo

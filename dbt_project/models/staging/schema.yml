@@ -1,20 +1,19 @@
 version: 2
 
 models:
-  - name: stg_raw_gis_agricultural_zones
+  - name: stg_gis_agricultural_zones
     description: >
-      Bronze-to-silver pass-through of agricultural zone polygons (SIGPAC / GIS).
-      Preserves PostGIS geometry for downstream spatial models.
+      Bronze-to-silver agricultural zone polygons (SIGPAC / GIS): typed ids, PostGIS geometry as geom.
     columns:
-      - name: cod_prov
-        description: Province code from GIS properties.
-      - name: name
-        description: Zone or region name from GIS properties.
-      - name: cod_ccaa
-        description: Autonomous community code.
+      - name: province_id
+        description: Province code from GIS properties (source cod_prov).
+      - name: province_name
+        description: Zone or region name (source name).
+      - name: region_id
+        description: Autonomous community code (source cod_ccaa).
       - name: cartodb_id
         description: Source feature identifier.
-      - name: geometry
+      - name: geom
         description: Polygon geometry in EPSG:4326 (PostGIS).
       - name: loaded_at
         tests:
@@ -22,79 +21,100 @@ models:
 
   - name: stg_reservoir_catalog
     description: >
-      Bronze-to-silver pass-through of the REDIAM reservoir catalog.
-      Preserves source column names for downstream intermediate cleaning.
+      Bronze-to-silver reservoir catalog from REDIAM: trimmed text fields, cod_est as reservoir_id,
+      raw WKT geometry as geometry_wkt (from source geom).
     columns:
-      - name: cod_est
+      - name: reservoir_id
+        description: REDIAM reservoir station code (source cod_est).
         tests:
           - not_null
           - unique
-      - name: nombre
-        description: Official reservoir name from REDIAM.
-      - name: provincia
-        description: Province where the reservoir is located.
-      - name: dist_dem
-        description: Hydrographic demarcation (e.g. GUADALQUIVIR).
+      - name: reservoir_name
+        description: Official reservoir name from REDIAM (source nombre).
+      - name: province
+        description: Province where the reservoir is located (source provincia).
+      - name: hydrographic_district
+        description: Hydrographic demarcation (source dist_dem).
+      - name: geometry_wkt
+        description: Geometry as WKT text (source geom).
       - name: loaded_at
         tests:
           - not_null
 
   - name: stg_embalses
     description: >
-      Bronze-to-silver pass-through of daily reservoir readings from REDIAM.
+      Bronze-to-silver daily reservoir readings from REDIAM (typed columns, English names).
     columns:
-      - name: fecha
-        description: Date of the hydrological observation.
+      - name: observation_date
+        description: Date of the hydrological observation (source fecha).
         tests:
           - not_null
-      - name: cod_est
-        description: REDIAM reservoir station code (e.g. E01).
+      - name: reservoir_code
+        description: REDIAM reservoir station code (source cod_est).
         tests:
           - not_null
-      - name: reserva_hm3
-        description: Current stored water volume in cubic hectometres.
-      - name: capacidad_hm3
-        description: Maximum reservoir capacity in cubic hectometres.
-      - name: porcentaje_llenado
-        description: Percentage of reservoir capacity currently filled.
+      - name: stored_volume_hm3
+        description: Current stored water volume (hm³).
+      - name: reservoir_capacity_hm3
+        description: Maximum reservoir capacity (hm³).
+      - name: fill_percentage
+        description: Percentage of capacity filled.
       - name: loaded_at
-        description: UTC timestamp when Airflow loaded the raw row.
+        description: UTC timestamp when the row was loaded to raw.
         tests:
           - not_null
 
   - name: stg_ria_clima
     description: >
-      Bronze-to-silver pass-through of daily agroclimatic readings from the RIA network.
+      Bronze-to-silver daily agroclimatic readings from the RIA network (typed columns, English names).
     columns:
-      - name: fecha
+      - name: observation_date
         description: Date of the meteorological observation.
         tests:
           - not_null
-      - name: provincia_id
-        description: Province identifier in the RIA catalog.
+      - name: province_id
+        description: Province identifier in the RIA catalog (source provincia_id).
         tests:
           - not_null
-      - name: provincia_nombre
-        description: Province name as returned by the source API.
-      - name: codigo_estacion
-        description: Station code within the province.
+      - name: province_name
+        description: Province name (source provincia_nombre).
+      - name: station_code
+        description: Station code within the province (source codigo_estacion).
         tests:
           - not_null
-      - name: nombre_estacion
-        description: Station name as returned by the source API.
-      - name: temp_media
-        description: Daily mean air temperature in degrees Celsius.
-      - name: temp_max
-        description: Daily maximum air temperature in degrees Celsius.
-      - name: temp_min
-        description: Daily minimum air temperature in degrees Celsius.
-      - name: humedad_media
-        description: Daily mean relative humidity as a percentage.
-      - name: precipitacion
-        description: Daily precipitation in millimetres.
-      - name: et0
-        description: Reference evapotranspiration (ET0) in millimetres.
+      - name: station_name
+        description: Station name (source nombre_estacion).
+      - name: mean_temperature_c
+        description: Daily mean air temperature (°C).
+      - name: max_temperature_c
+        description: Daily maximum air temperature (°C).
+      - name: min_temperature_c
+        description: Daily minimum air temperature (°C).
+      - name: mean_humidity_pct
+        description: Daily mean relative humidity (%).
+      - name: max_humidity_pct
+        description: Daily maximum relative humidity (%).
+      - name: min_humidity_pct
+        description: Daily minimum relative humidity (%).
+      - name: precipitation_mm
+        description: Daily precipitation (mm).
+      - name: solar_radiation
+        description: Solar radiation (source units from RIA).
+      - name: mean_wind_speed
+        description: Mean wind speed.
+      - name: max_wind_speed
+        description: Maximum wind speed.
+      - name: mean_wind_direction_deg
+        description: Mean wind direction (degrees).
+      - name: max_wind_direction_deg
+        description: Wind direction at max speed (degrees).
+      - name: reference_evapotranspiration_mm
+        description: Reference evapotranspiration ET0 (mm).
+      - name: battery_level
+        description: Station battery level where reported.
+      - name: source_updated_at
+        description: Source last-modified timestamp when present.
       - name: loaded_at
-        description: UTC timestamp when Airflow loaded the raw row.
+        description: UTC timestamp when the row was loaded to raw.
         tests:
           - not_null

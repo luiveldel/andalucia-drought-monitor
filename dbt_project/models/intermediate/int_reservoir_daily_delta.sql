@@ -12,10 +12,10 @@ with int_clean_embalses as (
 base as (
     select
         observation_date,
-        reservoir_id,
+        reservoir_code,
         stored_volume_hm3,
         lag(stored_volume_hm3) over (
-            partition by reservoir_id
+            partition by reservoir_code
             order by observation_date
         ) as prev_stored_volume_hm3
     from int_clean_embalses
@@ -24,7 +24,7 @@ base as (
 final as (
     select
     observation_date,
-    reservoir_id,
+    reservoir_code,
     stored_volume_hm3,
     prev_stored_volume_hm3,
     -- positivo = llenando, negativo = vaciando
@@ -37,7 +37,7 @@ final as (
 
 select
     observation_date,
-    reservoir_id,
+    reservoir_code,
     stored_volume_hm3,
     prev_stored_volume_hm3,
     daily_volume_delta_hm3,
