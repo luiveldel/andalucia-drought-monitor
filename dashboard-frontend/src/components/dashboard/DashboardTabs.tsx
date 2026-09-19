@@ -2,12 +2,13 @@ import { useT } from "@/i18n/useT";
 import { cn } from "@/lib/utils";
 import { useTabsStore, type DashboardTab } from "@/store/tabs.store";
 import {
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
   CloudRain,
   Droplets,
-  ArrowLeftRight,
   LayoutDashboard,
   Map,
-  Menu,
   Scale,
   type LucideIcon,
 } from "lucide-react";
@@ -68,7 +69,7 @@ export function DashboardSidebar() {
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-black/10 bg-surface/95 backdrop-blur-sm transition-all duration-200 dark:border-white/10 dark:bg-surface-dark/95 lg:flex",
+        "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-black/10 bg-surface/95 backdrop-blur-sm transition-all duration-200 dark:border-white/10 dark:bg-surface-dark/95 lg:flex",
         collapsed ? "w-14" : "w-52",
       )}
     >
@@ -108,7 +109,7 @@ export function DashboardSidebar() {
       >
         <NavButtons collapsed={collapsed} />
       </nav>
-      <div className="relative z-10 space-y-1 border-t border-black/10 px-2 py-2 dark:border-white/10">
+      <div className="relative z-10 border-t border-black/10 px-2 py-2 dark:border-white/10">
         {!collapsed ? (
           <p className="px-1 text-[9px] leading-snug text-muted dark:text-muted-dark">
             <a
@@ -121,15 +122,20 @@ export function DashboardSidebar() {
             </a>
           </p>
         ) : null}
-        <button
-          type="button"
-          onClick={() => toggleCollapsed()}
-          className="flex h-8 w-full items-center justify-center rounded-md text-muted transition-colors hover:bg-black/5 hover:text-ink dark:text-muted-dark dark:hover:bg-white/5 dark:hover:text-ink-dark"
-          aria-label={collapsed ? t("tab.expand") : t("tab.collapse")}
-        >
-          <Menu className="h-4 w-4" />
-        </button>
       </div>
+      <button
+        type="button"
+        onClick={() => toggleCollapsed()}
+        title={collapsed ? t("tab.expand") : t("tab.collapse")}
+        aria-label={collapsed ? t("tab.expand") : t("tab.collapse")}
+        className="absolute -right-3 top-[4.25rem] z-20 inline-flex h-6 w-6 items-center justify-center rounded-full border border-black/10 bg-surface text-muted shadow-sm transition-colors hover:bg-black/5 hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terracotta/40 dark:border-white/10 dark:bg-surface-dark dark:text-muted-dark dark:hover:bg-white/5 dark:hover:text-ink-dark"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+      </button>
     </aside>
   );
 }
