@@ -108,8 +108,6 @@ export interface DashboardSnapshot {
   riskBoard: RiskBoardRow[];
   dataNotes: string[];
   spi?: SpiSnapshot;
-  monthlyPrecip: MonthlyPrecipPoint[];
-  tempAnomaly: TempAnomalyPoint[];
   heatStress: HeatStressSnapshot;
   exploitationSystems: ExploitationSystemsSnapshot;
   meteoObserved: MeteoObservedSnapshot;
@@ -169,19 +167,7 @@ export interface ProvinceCompareResponse {
   labels_es: Record<string, string>;
 }
 
-export interface MonthlyPrecipPoint {
-  calendar_year: number;
-  calendar_month: number;
-  avg_mm: number;
-}
 
-export interface TempAnomalyPoint {
-  calendar_year: number;
-  calendar_month: number;
-  avg_temp: number;
-  baseline_temp: number;
-  anomaly: number;
-}
 
 export interface HeatStressProvinceRow {
   observation_date: string;

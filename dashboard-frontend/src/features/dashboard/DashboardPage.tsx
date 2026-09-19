@@ -5,7 +5,6 @@ import { ExploitationSystemsPanel } from "@/components/climate/ExploitationSyste
 import { HeatStressPanel } from "@/components/climate/HeatStressPanel";
 import { ClimateSubNav, type ClimateSubTab } from "@/components/climate/ClimateSubNav";
 import { ForecastPanel } from "@/components/climate/ForecastPanel";
-import { MonthlyAnomalyPanel } from "@/components/climate/MonthlyAnomalyPanel";
 import { ObservedMeteoPanel } from "@/components/climate/ObservedMeteoPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
@@ -116,10 +115,6 @@ export function DashboardPage() {
               <>
                 <ObservedMeteoPanel meteo={data.meteoObserved} />
                 <ClimateIndicatorsRow indicators={data.climate} />
-                <MonthlyAnomalyPanel
-                  monthlyPrecip={data.monthlyPrecip}
-                  tempAnomaly={data.tempAnomaly}
-                />
                 <HeatStressPanel heatStress={data.heatStress} />
                 <ExploitationSystemsPanel systems={data.exploitationSystems} />
                 <SpiPanel spi={data.spi} />

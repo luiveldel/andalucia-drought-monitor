@@ -13,8 +13,6 @@ import type {
   SeverityLevel,
   WeeklyDeltas,
   SpiSnapshot,
-  MonthlyPrecipPoint,
-  TempAnomalyPoint,
   HeatStressSnapshot,
   ExploitationSystemsSnapshot,
   MeteoObservedSnapshot,
@@ -49,8 +47,6 @@ type ApiPayload = {
   risk_board?: RiskBoardRow[];
   data_notes?: string[];
   spi?: SpiSnapshot;
-  monthly_precip?: MonthlyPrecipPoint[];
-  temp_anomaly?: TempAnomalyPoint[];
   heat_stress?: HeatStressSnapshot;
   exploitation_systems?: ExploitationSystemsSnapshot;
   meteo_observed?: MeteoObservedSnapshot;
@@ -299,8 +295,6 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
     riskBoard: api.risk_board ?? [],
     dataNotes: api.data_notes ?? [],
     spi: api.spi,
-    monthlyPrecip: api.monthly_precip ?? [],
-    tempAnomaly: api.temp_anomaly ?? [],
     heatStress: api.heat_stress ?? {
       available: false,
       as_of: null,
