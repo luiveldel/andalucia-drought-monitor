@@ -63,9 +63,9 @@ export function HeatStressPanel(props: { heatStress: HeatStressSnapshot }) {
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} width={36} />
                   <Tooltip
-                    formatter={(v: number, name: string) => {
+                    formatter={(v, name) => {
                       if (name === "risk") return [Number(v).toFixed(2), "Índice riesgo"];
-                      return [v, name];
+                      return [v as number | string, String(name)];
                     }}
                   />
                   <Area

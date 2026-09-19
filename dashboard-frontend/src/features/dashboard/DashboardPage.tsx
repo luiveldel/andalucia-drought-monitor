@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ReservoirEvolutionChart } from "@/components/charts/ReservoirEvolutionChart";
 import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow";
 import { ExploitationSystemsPanel } from "@/components/climate/ExploitationSystemsPanel";
 import { HeatStressPanel } from "@/components/climate/HeatStressPanel";
+import { ClimateProvinceSelect } from "@/components/climate/ClimateProvinceSelect";
 import { ClimateSubNav, type ClimateSubTab } from "@/components/climate/ClimateSubNav";
+import { CLIMATE_REGIONAL, type ClimateProvince } from "@/constants/provinces";
+import { buildClimateIndicators } from "@/services/dashboard/dashboard.service";
 import { ForecastPanel } from "@/components/climate/ForecastPanel";
-import { MonthlyAnomalyPanel } from "@/components/climate/MonthlyAnomalyPanel";
 import { ObservedMeteoPanel } from "@/components/climate/ObservedMeteoPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
@@ -32,6 +34,14 @@ export function DashboardPage() {
   const tab = useTabsStore((s) => s.tab);
   const t = useT();
   const [climateSub, setClimateSub] = useState<ClimateSubTab>("observed");
+  const [climateProvince, setClimateProvince] = useState<ClimateProvince>(CLIMATE_REGIONAL);
+
+  const climateIndicators = useMemo(() => {
+    if (!data) return [];
+    if (climateProvince === CLIMATE_REGIONAL) return data.climate;
+    const bundle = data.climateByProvince?.[climateProvince];
+    return bundle ? buildClimateIndicators(bundle) : data.climate;
+  }, [climateProvince, data]);
 
   if (isLoading) {
     return (
@@ -109,16 +119,18 @@ export function DashboardPage() {
 
         {tab === "climate" ? (
           <div className="space-y-6">
-            <ClimateSubNav value={climateSub} onChange={setClimateSub} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <ClimateSubNav value={climateSub} onChange={setClimateSub} />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
             {climateSub === "forecast" ? (
-              <ForecastPanel forecast={data.meteoForecast} />
+              <ForecastPanel forecast={data.meteoForecast} province={climateProvince} />
             ) : (
               <>
-                <ObservedMeteoPanel meteo={data.meteoObserved} />
-                <ClimateIndicatorsRow indicators={data.climate} />
-                <MonthlyAnomalyPanel
-                  monthlyPrecip={data.monthlyPrecip}
-                  tempAnomaly={data.tempAnomaly}
+                <ObservedMeteoPanel meteo={data.meteoObserved} province={climateProvince} />
+                <ClimateIndicatorsRow
+                  indicators={climateIndicators}
+                  scopeLabel={climateProvince}
                 />
                 <HeatStressPanel heatStress={data.heatStress} />
                 <ExploitationSystemsPanel systems={data.exploitationSystems} />

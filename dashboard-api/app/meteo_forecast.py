@@ -12,11 +12,11 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-# Sevilla capital — representative Andalusia point for municipal AEMET forecast
-AEMET_MUNICIPIO = "41091"
-AEMET_LOCATION_LABEL = "Sevilla (AEMET · representativo Andalucía)"
+from app.provinces_meta import resolve_province
 
-# Open-Meteo centroid fallback
+# Default (Andalucía): Sevilla capital as AEMET stand-in + Andalusia centroid for Open-Meteo
+AEMET_MUNICIPIO = "41091"
+AEMET_LOCATION_LABEL = "Andalucía · Sevilla (AEMET)"
 OM_LAT = 37.39
 OM_LON = -5.99
 OM_LOCATION_LABEL = "Andalucía (centroide · Open-Meteo)"
@@ -24,7 +24,7 @@ OM_LOCATION_LABEL = "Andalucía (centroide · Open-Meteo)"
 TZ = "Europe/Madrid"
 CACHE_TTL_SEC = 20 * 60
 
-_cache: dict[str, Any] = {"ts": 0.0, "payload": None, "source": None}
+_cache: dict[str, dict[str, Any]] = {}
 
 # AEMET estado cielo codes (simplified)
 AEMET_SKY: dict[str, tuple[str, str]] = {
@@ -208,14 +208,14 @@ def _aemet_http(path: str, api_key: str) -> Any:
     raise RuntimeError("No se pudo decodificar la respuesta AEMET")
 
 
-def _load_aemet(api_key: str) -> dict[str, Any]:
+def _load_aemet(api_key: str, municipio: str = AEMET_MUNICIPIO, location_label: str = AEMET_LOCATION_LABEL, lat: float = OM_LAT, lon: float = OM_LON) -> dict[str, Any]:
     madrid = ZoneInfo(TZ)
     now = datetime.now(madrid)
     today = now.date().isoformat()
     hour_now = now.hour
 
-    diaria = _aemet_http(f"/prediccion/especifica/municipio/diaria/{AEMET_MUNICIPIO}", api_key)
-    horaria = _aemet_http(f"/prediccion/especifica/municipio/horaria/{AEMET_MUNICIPIO}", api_key)
+    diaria = _aemet_http(f"/prediccion/especifica/municipio/diaria/{municipio}", api_key)
+    horaria = _aemet_http(f"/prediccion/especifica/municipio/horaria/{municipio}", api_key)
 
     d_item = diaria[0] if isinstance(diaria, list) and diaria else {}
     h_item = horaria[0] if isinstance(horaria, list) and horaria else {}
@@ -345,9 +345,9 @@ def _load_aemet(api_key: str) -> dict[str, Any]:
         "available": True,
         "source": "AEMET",
         "attribution": "https://opendata.aemet.es/",
-        "location_label": AEMET_LOCATION_LABEL,
-        "latitude": 37.39,
-        "longitude": -5.99,
+        "location_label": location_label,
+        "latitude": lat,
+        "longitude": lon,
         "generated_at": now.isoformat(),
         "error": None,
         "current": current,
@@ -358,10 +358,10 @@ def _load_aemet(api_key: str) -> dict[str, Any]:
     return payload
 
 
-def _load_open_meteo() -> dict[str, Any]:
+def _load_open_meteo(lat: float = OM_LAT, lon: float = OM_LON, location_label: str = OM_LOCATION_LABEL) -> dict[str, Any]:
     params = {
-        "latitude": OM_LAT,
-        "longitude": OM_LON,
+        "latitude": lat,
+        "longitude": lon,
         "timezone": TZ,
         "forecast_days": 7,
         "current": ",".join(
@@ -471,9 +471,9 @@ def _load_open_meteo() -> dict[str, Any]:
         "available": True,
         "source": "Open-Meteo",
         "attribution": "https://open-meteo.com",
-        "location_label": OM_LOCATION_LABEL,
-        "latitude": OM_LAT,
-        "longitude": OM_LON,
+        "location_label": location_label,
+        "latitude": lat,
+        "longitude": lon,
         "generated_at": datetime.now(madrid).isoformat(),
         "error": None,
         "current": current,
@@ -484,11 +484,11 @@ def _load_open_meteo() -> dict[str, Any]:
 
 
 
-def _open_meteo_current_pressure() -> float | None:
-    """Lightweight fetch of surface pressure (hPa) for Andalucía centroid."""
+def _open_meteo_current_pressure(lat: float = OM_LAT, lon: float = OM_LON) -> float | None:
+    """Lightweight fetch of surface pressure (hPa) for a point."""
     params = {
-        "latitude": OM_LAT,
-        "longitude": OM_LON,
+        "latitude": lat,
+        "longitude": lon,
         "timezone": TZ,
         "current": "surface_pressure",
     }
@@ -499,7 +499,7 @@ def _open_meteo_current_pressure() -> float | None:
     return _num((raw.get("current") or {}).get("surface_pressure"))
 
 
-def _enrich_pressure_from_open_meteo(payload: dict[str, Any]) -> dict[str, Any]:
+def _enrich_pressure_from_open_meteo(payload: dict[str, Any], lat: float = OM_LAT, lon: float = OM_LON) -> dict[str, Any]:
     """Fill missing pressure on AEMET (or any) forecast current from Open-Meteo."""
     current = payload.get("current")
     if not isinstance(current, dict):
@@ -507,7 +507,7 @@ def _enrich_pressure_from_open_meteo(payload: dict[str, Any]) -> dict[str, Any]:
     if current.get("pressure_hpa") is not None:
         return payload
     try:
-        pressure = _open_meteo_current_pressure()
+        pressure = _open_meteo_current_pressure(lat=lat, lon=lon)
     except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, TypeError, ValueError):
         return payload
     if pressure is None:
@@ -516,36 +516,60 @@ def _enrich_pressure_from_open_meteo(payload: dict[str, Any]) -> dict[str, Any]:
     return {**payload, "current": current}
 
 
-def load_meteo_forecast() -> dict[str, Any]:
+def load_meteo_forecast(province: str | None = None) -> dict[str, Any]:
+    """Load forecast for Andalucía (default) or a province capital.
+
+    ``province`` None / Andalucía → Sevilla AEMET as regional stand-in.
+    Named province → that capital's AEMET municipio (+ Open-Meteo fallback).
+    """
+    meta = resolve_province(province)
+    if meta is None:
+        cache_key = "andalucia"
+        municipio = AEMET_MUNICIPIO
+        aemet_label = AEMET_LOCATION_LABEL
+        lat, lon = OM_LAT, OM_LON
+        om_label = OM_LOCATION_LABEL
+    else:
+        cache_key = str(meta["name"])
+        municipio = str(meta["aemet_municipio"])
+        aemet_label = f"{meta['name']} capital (AEMET)"
+        lat, lon = float(meta["lat"]), float(meta["lon"])
+        om_label = f"{meta['name']} (Open-Meteo)"
+
     now = time.time()
-    if _cache["payload"] is not None and (now - float(_cache["ts"])) < CACHE_TTL_SEC:
-        return _cache["payload"]
+    hit = _cache.get(cache_key)
+    if hit is not None and (now - float(hit["ts"])) < CACHE_TTL_SEC and hit.get("payload"):
+        return hit["payload"]
 
     api_key = (os.environ.get("AEMET_API_KEY") or "").strip()
     payload: dict[str, Any]
 
     if api_key:
         try:
-            payload = _load_aemet(api_key)
-            payload = _enrich_pressure_from_open_meteo(payload)
+            payload = _load_aemet(
+                api_key,
+                municipio=municipio,
+                location_label=aemet_label,
+                lat=lat,
+                lon=lon,
+            )
+            payload = _enrich_pressure_from_open_meteo(payload, lat=lat, lon=lon)
         except (urllib.error.URLError, TimeoutError, OSError, RuntimeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             try:
-                payload = _load_open_meteo()
+                payload = _load_open_meteo(lat=lat, lon=lon, location_label=om_label)
                 payload["error"] = f"AEMET falló ({exc}); usando Open-Meteo"
             except Exception as exc2:  # noqa: BLE001
                 payload = _empty(f"AEMET: {exc}; Open-Meteo: {exc2}", source="AEMET")
     else:
         try:
-            payload = _load_open_meteo()
+            payload = _load_open_meteo(lat=lat, lon=lon, location_label=om_label)
         except Exception as exc:  # noqa: BLE001
             payload = _empty(str(exc), source="Open-Meteo")
 
-    # Only cache successful payloads so a boot-time DNS blip does not stick for 20 min.
+    payload["province"] = cache_key if cache_key != "andalucia" else "Andalucía"
+
     if payload.get("available"):
-        _cache["ts"] = now
-        _cache["payload"] = payload
-        _cache["source"] = payload.get("source")
+        _cache[cache_key] = {"ts": now, "payload": payload, "source": payload.get("source")}
     else:
-        _cache["ts"] = 0.0
-        _cache["payload"] = None
+        _cache.pop(cache_key, None)
     return payload

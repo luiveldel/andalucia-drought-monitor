@@ -94,3 +94,30 @@ def gis_zones() -> JSONResponse:
         return JSONResponse(content=fc)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+@app.get("/api/meteo/forecast")
+def get_meteo_forecast(
+    province: str | None = Query(
+        None,
+        description="Provincia andaluza (capital AEMET). Vacío = Andalucía.",
+    ),
+) -> dict:
+    """AEMET (preferred) / Open-Meteo forecast for Andalucía or a province capital."""
+    try:
+        from app.meteo_forecast import load_meteo_forecast
+
+        return jsonable_encoder(load_meteo_forecast(province))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/meteo/provinces")
+def get_meteo_provinces() -> dict:
+    """Province options for the Clima selector."""
+    from app.provinces_meta import PROVINCES, REGIONAL_KEY
+
+    return {
+        "regional": REGIONAL_KEY,
+        "provinces": [p["name"] for p in PROVINCES],
+    }
+

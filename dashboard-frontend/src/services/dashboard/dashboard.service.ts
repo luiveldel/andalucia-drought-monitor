@@ -1,5 +1,6 @@
 import type {
   ClimateIndicator,
+  ClimateProvinceMetrics,
   DashboardKpi,
   DashboardSnapshot,
   DashboardTimeRange,
@@ -13,8 +14,6 @@ import type {
   SeverityLevel,
   WeeklyDeltas,
   SpiSnapshot,
-  MonthlyPrecipPoint,
-  TempAnomalyPoint,
   HeatStressSnapshot,
   ExploitationSystemsSnapshot,
   MeteoObservedSnapshot,
@@ -49,11 +48,10 @@ type ApiPayload = {
   risk_board?: RiskBoardRow[];
   data_notes?: string[];
   spi?: SpiSnapshot;
-  monthly_precip?: MonthlyPrecipPoint[];
-  temp_anomaly?: TempAnomalyPoint[];
   heat_stress?: HeatStressSnapshot;
   exploitation_systems?: ExploitationSystemsSnapshot;
   meteo_observed?: MeteoObservedSnapshot;
+  climate_by_province?: Record<string, ClimateProvinceMetrics>;
   meteo_forecast?: MeteoForecastSnapshot;
 };
 
@@ -151,7 +149,6 @@ function buildEvolution(api: ApiPayload, range: DashboardTimeRange): ReservoirTi
   // and only yields 1–2 points, which looks like a straight line.
   const daily = api.sparkline_fill ?? [];
   if (daily.length) {
-    const cutoff = new Date();
     const latest = daily.reduce((max, r) => (r.d > max ? r.d : max), daily[0]?.d ?? "");
     const latestMs = Date.parse(latest);
     const minMs = Number.isFinite(latestMs) ? latestMs - rangeDays(range) * 86400000 : 0;
@@ -205,42 +202,7 @@ function buildProvinces(api: ApiPayload): ProvinceStatus[] {
 }
 
 function buildClimate(api: ApiPayload): ClimateIndicator[] {
-  return [
-    {
-      id: "precip",
-      label: "Lluvia acumulada (30d)",
-      value: Number(api.precipitation_30d_mm ?? 0),
-      unit: "mm",
-      comparisonLabel: "Δ 7d precip diaria",
-      comparisonValue: api.weekly_deltas?.precip_mm,
-      series: (api.sparkline_precip ?? []).map((r) => ({ date: r.d, value: r.v })),
-    },
-    {
-      id: "deficit",
-      label: "Déficit hídrico (ET0 − precip)",
-      value: Number(api.avg_water_deficit_mm ?? 0),
-      unit: "mm/día",
-      comparisonLabel: "Δ 7d",
-      comparisonValue: api.weekly_deltas?.deficit_mm,
-      series: (api.sparkline_deficit ?? []).map((r) => ({ date: r.d, value: r.v })),
-    },
-    {
-      id: "stress",
-      label: "Estrés hídrico",
-      value: Number(api.avg_stress ?? 0),
-      unit: "índice",
-      series: (api.sparkline_stress ?? []).map((r) => ({ date: r.d, value: r.v })),
-    },
-    {
-      id: "fill",
-      label: "Llenado medio",
-      value: Number(api.avg_fill_pct ?? 0),
-      unit: "%",
-      comparisonLabel: "Δ 7d",
-      comparisonValue: api.weekly_deltas?.fill_pct,
-      series: (api.sparkline_fill ?? []).map((r) => ({ date: r.d, value: r.v })),
-    },
-  ];
+  return buildClimateIndicators(api);
 }
 
 function buildReservoirs(api: ApiPayload): ReservoirRecord[] {
@@ -299,8 +261,6 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
     riskBoard: api.risk_board ?? [],
     dataNotes: api.data_notes ?? [],
     spi: api.spi,
-    monthlyPrecip: api.monthly_precip ?? [],
-    tempAnomaly: api.temp_anomaly ?? [],
     heatStress: api.heat_stress ?? {
       available: false,
       as_of: null,
@@ -320,8 +280,10 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       regional: null,
       by_province: [],
       trend_days: [],
+      trend_by_province: {},
       alerts: [],
     },
+    climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {
       available: false,
       source: "Open-Meteo",
@@ -346,4 +308,73 @@ export async function fetchDashboardSnapshot(
   }
   const api = (await res.json()) as ApiPayload;
   return mapApiToSnapshot(api, range);
+}
+
+
+/** Build climate indicator cards from regional dashboard KPIs or a province bundle. */
+export function buildClimateIndicators(
+  source:
+    | {
+        precipitation_30d_mm?: number;
+        avg_water_deficit_mm?: number;
+        avg_stress?: number;
+        avg_fill_pct?: number;
+        weekly_deltas?: { precip_mm?: number; deficit_mm?: number; fill_pct?: number };
+        sparkline_precip?: Array<{ d: string; v: number }>;
+        sparkline_deficit?: Array<{ d: string; v: number }>;
+        sparkline_stress?: Array<{ d: string; v: number }>;
+        sparkline_fill?: Array<{ d: string; v: number }>;
+      }
+    | ClimateProvinceMetrics,
+): ClimateIndicator[] {
+  const weekly = "weekly_deltas" in source ? source.weekly_deltas : undefined;
+  return [
+    {
+      id: "precip",
+      label: "Lluvia acumulada (30d)",
+      value: Number(source.precipitation_30d_mm ?? 0),
+      unit: "mm",
+      comparisonLabel: weekly ? "Δ 7d precip diaria" : undefined,
+      comparisonValue: weekly?.precip_mm,
+      series: (source.sparkline_precip ?? []).map((r) => ({ date: r.d, value: r.v })),
+    },
+    {
+      id: "deficit",
+      label: "Déficit hídrico (ET0 − precip)",
+      value: Number(source.avg_water_deficit_mm ?? 0),
+      unit: "mm/día",
+      comparisonLabel: weekly ? "Δ 7d" : undefined,
+      comparisonValue: weekly?.deficit_mm,
+      series: (source.sparkline_deficit ?? []).map((r) => ({ date: r.d, value: r.v })),
+    },
+    {
+      id: "stress",
+      label: "Estrés hídrico",
+      value: Number(source.avg_stress ?? 0),
+      unit: "índice",
+      series: (source.sparkline_stress ?? []).map((r) => ({ date: r.d, value: r.v })),
+    },
+    {
+      id: "fill",
+      label: "Llenado medio",
+      value: Number(source.avg_fill_pct ?? 0),
+      unit: "%",
+      comparisonLabel: weekly ? "Δ 7d" : undefined,
+      comparisonValue: weekly?.fill_pct,
+      series: (source.sparkline_fill ?? []).map((r) => ({ date: r.d, value: r.v })),
+    },
+  ];
+}
+
+
+export async function fetchMeteoForecast(province?: string): Promise<MeteoForecastSnapshot> {
+  const q =
+    province && province !== "Andalucía"
+      ? `?province=${encodeURIComponent(province)}`
+      : "";
+  const res = await fetch(`/api/meteo/forecast${q}`);
+  if (!res.ok) {
+    throw new Error(`Forecast HTTP ${res.status}`);
+  }
+  return (await res.json()) as MeteoForecastSnapshot;
 }
