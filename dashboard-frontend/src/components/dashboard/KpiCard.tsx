@@ -1,12 +1,7 @@
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  WATER_FILL_BOTTOM,
-  WATER_FILL_MID,
-  WATER_FILL_TOP,
-  WATER_STROKE,
-} from "@/lib/water-chart";
+import { chartToneForId } from "@/lib/water-chart";
 import type { DashboardKpi } from "@/types/dashboard-model";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
@@ -20,7 +15,8 @@ export function KpiCard(props: { kpi: DashboardKpi }) {
     critical: "bg-sev-critical",
   };
   const bar = barTone[kpi.severity ?? "normal"];
-  const gradId = `kpi-water-${kpi.id}`;
+  const gradId = `kpi-area-${kpi.id}`;
+  const tone = chartToneForId(kpi.id);
 
   return (
     <Card className="overflow-hidden">
@@ -61,15 +57,15 @@ export function KpiCard(props: { kpi: DashboardKpi }) {
               <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={WATER_FILL_TOP} />
-                    <stop offset="55%" stopColor={WATER_FILL_MID} />
-                    <stop offset="100%" stopColor={WATER_FILL_BOTTOM} />
+                    <stop offset="0%" stopColor={tone.fillTop} />
+                    <stop offset="55%" stopColor={tone.fillMid} />
+                    <stop offset="100%" stopColor={tone.fillBottom} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="v"
-                  stroke={WATER_STROKE}
+                  stroke={tone.stroke}
                   strokeWidth={1.5}
                   fill={`url(#${gradId})`}
                   fillOpacity={1}

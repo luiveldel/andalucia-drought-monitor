@@ -1,17 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  WATER_FILL_BOTTOM,
-  WATER_FILL_MID,
-  WATER_FILL_TOP,
-  WATER_STROKE,
-} from "@/lib/water-chart";
+import { chartToneForId } from "@/lib/water-chart";
 import type { ClimateIndicator } from "@/types/dashboard-model";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
 export function ClimateIndicatorCard(props: { indicator: ClimateIndicator }) {
   const { indicator } = props;
   const data = (indicator.series ?? []).map((p) => ({ ...p }));
-  const gradId = `climate-water-${indicator.id}`;
+  const gradId = `climate-area-${indicator.id}`;
+  const tone = chartToneForId(indicator.id);
 
   return (
     <Card className="min-h-[140px]">
@@ -39,15 +35,15 @@ export function ClimateIndicatorCard(props: { indicator: ClimateIndicator }) {
               <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={WATER_FILL_TOP} />
-                    <stop offset="55%" stopColor={WATER_FILL_MID} />
-                    <stop offset="100%" stopColor={WATER_FILL_BOTTOM} />
+                    <stop offset="0%" stopColor={tone.fillTop} />
+                    <stop offset="55%" stopColor={tone.fillMid} />
+                    <stop offset="100%" stopColor={tone.fillBottom} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke={WATER_STROKE}
+                  stroke={tone.stroke}
                   strokeWidth={1.5}
                   fill={`url(#${gradId})`}
                   fillOpacity={1}
