@@ -24,7 +24,6 @@ services:
       retries: 5
     networks:
       - agro-network
-      - data-flight-pipeline_default
     restart: unless-stopped
 
   dashboard-api:
@@ -81,7 +80,4 @@ networks:
   agro-network:
     driver: bridge
   web_proxy:
-    external: true
-  # So Airflow (data-flight-pipeline) can reach agro-postgres by hostname
-  data-flight-pipeline_default:
     external: true
