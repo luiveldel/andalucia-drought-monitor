@@ -63,6 +63,7 @@ def _empty_payload() -> dict[str, Any]:
         "exploitation_systems": {"available": False, "as_of": None, "systems": []},
         "meteo_observed": {"available": False, "as_of": None, "grain": "daily", "note": "", "regional": None, "by_province": [], "trend_days": [], "trend_by_province": {}, "alerts": []},
         "meteo_siar": {"available": False, "as_of": None, "grain": "daily", "source": "SiAR", "attribution": "https://servicio.mapa.gob.es/siarweb/", "note": "", "station_count": 0, "regional": None, "by_province": [], "trend_days": []},
+        "irrigation_autonomy": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "kc": 0.75, "irrigated_ha_source": "", "note": "", "method_es": "", "regional": None, "by_province": []},
         "meteo_forecast": {"available": False, "source": "Open-Meteo", "attribution": "https://open-meteo.com", "location_label": "Andalucía (centroide)", "latitude": 37.39, "longitude": -5.99, "generated_at": None, "error": None, "current": None, "hourly_today": [], "daily": [], "alerts": []},
         "stress_evolution": [],
         "climate_by_province": {},
@@ -583,12 +584,14 @@ def load_dashboard_data() -> dict[str, Any]:
         from app.climate_extras import load_exploitation_systems, load_heat_stress
         from app.meteo_observed import load_meteo_observed
         from app.meteo_siar import load_meteo_siar
+        from app.irrigation_autonomy import load_irrigation_autonomy
         from app.meteo_forecast import load_meteo_forecast
 
         heat_stress = load_heat_stress(conn)
         exploitation_systems = load_exploitation_systems(conn)
         meteo_observed = load_meteo_observed(conn)
         meteo_siar = load_meteo_siar(conn)
+        irrigation_autonomy = load_irrigation_autonomy(conn)
         from app.climate_by_province import load_climate_by_province
         climate_by_province = load_climate_by_province(conn)
         meteo_forecast = load_meteo_forecast()
@@ -780,6 +783,7 @@ def load_dashboard_data() -> dict[str, Any]:
             "exploitation_systems": exploitation_systems,
             "meteo_observed": meteo_observed,
             "meteo_siar": meteo_siar,
+            "irrigation_autonomy": irrigation_autonomy,
             "climate_by_province": climate_by_province,
             "meteo_forecast": meteo_forecast,
             "stress_evolution": stress_evolution,
@@ -795,5 +799,6 @@ def load_dashboard_data() -> dict[str, Any]:
                 "Déficit hídrico diario = ET0 − precip (mm); no es SPI-12.",
                 "SPI-12 pendiente de serie climática de referencia en marts.",
                 "Meteo observado = RIA diario; SiAR (MAPA) es capa complementaria de riego; pronóstico = AEMET (municipio) con fallback Open-Meteo.",
+                "Autonomía de riego = piloto (embalse ÷ demanda SiAR×ha Junta 2023); no es un modelo de derechos.",
             ],
         }

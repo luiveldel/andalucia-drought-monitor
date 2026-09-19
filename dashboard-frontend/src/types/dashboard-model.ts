@@ -125,6 +125,7 @@ export interface DashboardSnapshot {
   exploitationSystems: ExploitationSystemsSnapshot;
   meteoObserved: MeteoObservedSnapshot;
   meteoSiar: MeteoSiarSnapshot;
+  irrigationAutonomy: IrrigationAutonomySnapshot;
   meteoForecast: MeteoForecastSnapshot;
 }
 
@@ -283,6 +284,36 @@ export interface MeteoSiarTrendDay {
   mean_humidity_pct: number;
   precip_mm: number;
   et0_mm?: number;
+}
+
+
+export interface IrrigationAutonomyProvince {
+  province_name: string;
+  stored_hm3: number | null;
+  capacity_hm3: number | null;
+  fill_pct: number | null;
+  irrigated_ha: number;
+  et0_mm: number | null;
+  pe_mm: number | null;
+  precip_mm: number | null;
+  net_demand_mm: number | null;
+  daily_demand_hm3: number | null;
+  days_autonomy: number | null;
+  weeks_autonomy: number | null;
+  risk_level: "critical" | "warning" | "watch" | "ok" | "unknown";
+  siar_station_count: number;
+}
+
+export interface IrrigationAutonomySnapshot {
+  available: boolean;
+  as_of_reservoir?: string | null;
+  as_of_siar?: string | null;
+  kc?: number;
+  irrigated_ha_source?: string;
+  method_es?: string;
+  note?: string;
+  regional?: IrrigationAutonomyProvince | null;
+  by_province?: IrrigationAutonomyProvince[];
 }
 
 export interface MeteoSiarSnapshot {

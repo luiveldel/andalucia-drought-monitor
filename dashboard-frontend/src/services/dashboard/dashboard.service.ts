@@ -18,6 +18,7 @@ import type {
   ExploitationSystemsSnapshot,
   MeteoObservedSnapshot,
   MeteoSiarSnapshot,
+  IrrigationAutonomySnapshot,
   MeteoForecastSnapshot,
 } from "@/types/dashboard-model";
 
@@ -53,6 +54,7 @@ type ApiPayload = {
   exploitation_systems?: ExploitationSystemsSnapshot;
   meteo_observed?: MeteoObservedSnapshot;
   meteo_siar?: MeteoSiarSnapshot;
+  irrigation_autonomy?: IrrigationAutonomySnapshot;
   climate_by_province?: Record<string, ClimateProvinceMetrics>;
   meteo_forecast?: MeteoForecastSnapshot;
 };
@@ -296,6 +298,17 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       regional: null,
       by_province: [],
       trend_days: [],
+    },
+    irrigationAutonomy: api.irrigation_autonomy ?? {
+      available: false,
+      as_of_reservoir: null,
+      as_of_siar: null,
+      kc: 0.75,
+      irrigated_ha_source: "",
+      method_es: "",
+      note: "",
+      regional: null,
+      by_province: [],
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {
