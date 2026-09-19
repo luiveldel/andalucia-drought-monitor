@@ -21,8 +21,8 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
   return (
     <section className="space-y-3">
       <SectionHeader
-        title="Pronóstico Open-Meteo"
-        description={`${f.location_label} · fuente externa (no RIA). Horario del día en curso y resumen a 7 días.`}
+        title={`Pronóstico ${f.source || "externo"}`}
+        description={`${f.location_label ?? ""} · fuente externa (no RIA). Horario del día en curso y resumen a 7 días.`}
       />
       <Card>
         <CardContent className="space-y-4 pt-4">
@@ -162,12 +162,13 @@ export function ForecastPanel(props: { forecast: MeteoForecastSnapshot }) {
             Datos de{" "}
             <a
               className="underline underline-offset-2"
-              href={f.attribution || "https://open-meteo.com"}
+              href={f.attribution || "https://opendata.aemet.es/"}
               target="_blank"
               rel="noreferrer"
             >
-              Open-Meteo
+              {f.source || "fuente externa"}
             </a>
+            {f.error ? ` · ${f.error}` : null}
             {f.generated_at ? ` · actualizado ${f.generated_at.slice(0, 16).replace("T", " ")}` : null}
           </p>
         </CardContent>

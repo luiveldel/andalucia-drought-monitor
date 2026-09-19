@@ -786,6 +786,6 @@ def load_dashboard_data() -> dict[str, Any]:
                 "Precipitación = avg_precipitation_mm (mm), no volumen de embalse.",
                 "Déficit hídrico diario = ET0 − precip (mm); no es SPI-12.",
                 "SPI-12 pendiente de serie climática de referencia en marts.",
-                "Meteo observado = RIA diario; pronóstico = Open-Meteo (centroide Andalucía).",
+                "Meteo observado = RIA diario; pronóstico = AEMET (municipio) con fallback Open-Meteo.",
             ],
         }

@@ -120,6 +120,9 @@ services:
     container_name: agro-dashboard-api
     ports:
       - "8000:8000"
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       POSTGRES_DWH_HOST: postgres
       POSTGRES_DWH_PORT: "5432"
@@ -127,6 +130,7 @@ services:
       POSTGRES_DWH_USER: dwh_user
       POSTGRES_DWH_PASSWORD: dwh_password
       POSTGRES_DWH_SCHEMA: marts
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
