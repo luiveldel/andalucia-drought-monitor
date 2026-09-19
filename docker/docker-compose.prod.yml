@@ -1,0 +1,80 @@
+# Production overlay for VPS (Caddy + Cloudflare Tunnel on web_proxy).
+# Usage (from repo root):
+#   docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --build
+#
+# Does NOT start Airflow (VPS already has one). Postgres is internal-only.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: agro-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agro-network
+    restart: unless-stopped
+
+  dashboard-api:
+    build:
+      context: ../dashboard-api
+      dockerfile: Dockerfile
+    container_name: agro-dashboard-api
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      POSTGRES_DWH_HOST: postgres
+      POSTGRES_DWH_PORT: "5432"
+      POSTGRES_DWH_DB: agro_sequia
+      POSTGRES_DWH_USER: dwh_user
+      POSTGRES_DWH_PASSWORD: dwh_password
+      POSTGRES_DWH_SCHEMA: marts
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agro-network
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  dashboard-frontend:
+    build:
+      context: ../dashboard-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
+    container_name: agro-dashboard-frontend
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      VITE_PROXY_TARGET: http://dashboard-api:8000
+      VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
+    depends_on:
+      - dashboard-api
+    networks:
+      - agro-network
+      - web_proxy
+    restart: unless-stopped
+    expose:
+      - "5173"
+
+volumes:
+  postgres-data:
+
+networks:
+  agro-network:
+    driver: bridge
+  web_proxy:
+    external: true
