@@ -13,9 +13,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const TABS: { id: DashboardTab; key: "tab.decision" | "tab.overview" | "tab.map" | "tab.climate" | "tab.compare" | "tab.reservoirs"; icon: LucideIcon }[] = [
-  { id: "decision", key: "tab.decision", icon: Scale },
+const TABS: { id: DashboardTab; key: "tab.overview" | "tab.decision" | "tab.map" | "tab.climate" | "tab.compare" | "tab.reservoirs"; icon: LucideIcon }[] = [
   { id: "overview", key: "tab.overview", icon: LayoutDashboard },
+  { id: "decision", key: "tab.decision", icon: Scale },
   { id: "map", key: "tab.map", icon: Map },
   { id: "climate", key: "tab.climate", icon: CloudRain },
   { id: "compare", key: "tab.compare", icon: ArrowLeftRight },
@@ -76,7 +76,7 @@ export function DashboardSidebar() {
       <div className="relative z-10 flex h-14 items-center border-b border-black/10 px-3 dark:border-white/10">
         <button
           type="button"
-          onClick={() => setTab("decision")}
+          onClick={() => setTab("overview")}
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-terracotta/30",
             collapsed ? "justify-center" : "",

@@ -27,7 +27,7 @@ interface TabsState {
 }
 
 export const useTabsStore = create<TabsState>((set, get) => ({
-  tab: "decision",
+  tab: "overview",
   collapsed: typeof window === "undefined" ? false : readCollapsed(),
   setTab: (tab) => set({ tab }),
   setCollapsed: (collapsed) => {
