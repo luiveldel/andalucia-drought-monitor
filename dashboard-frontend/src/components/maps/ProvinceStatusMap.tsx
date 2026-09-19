@@ -54,14 +54,14 @@ export function ProvinceStatusMap(props: { provinces: ProvinceStatus[] }) {
   }, [props.provinces]);
 
   if (!fc) {
-    return <div className="h-80 animate-pulse rounded-lg bg-black/10 dark:bg-white/10" aria-busy />;
+    return <div className="h-[28rem] w-full animate-pulse rounded-lg bg-black/10 dark:bg-white/10" aria-busy />;
   }
 
   return (
     <MapContainer
       center={[37.25, -4.6]}
       zoom={7}
-      className="z-0 h-80 w-full overflow-hidden rounded-lg"
+      className="z-0 h-[28rem] w-full overflow-hidden rounded-lg"
       scrollWheelZoom={false}
     >
       <TileLayer attribution={ATTR} url={TILE} subdomains="abcd" />

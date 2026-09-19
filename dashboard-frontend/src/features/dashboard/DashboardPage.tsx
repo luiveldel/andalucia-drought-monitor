@@ -53,31 +53,38 @@ export function DashboardPage() {
           recommendations={data.recommendations}
           riskBoard={data.riskBoard}
         />
+
         <section>
-          <SectionHeader title="Indicadores clave" description="Valores del último día disponible en marts, con variación semanal." />
+          <SectionHeader
+            title="Indicadores clave"
+            description="Valores del último día disponible en marts, con variación semanal."
+          />
           <div className="mt-3">
             <KpiGrid kpis={data.kpis} />
           </div>
         </section>
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="space-y-4 xl:col-span-2">
+          <div className="xl:col-span-2">
             <ReservoirEvolutionChart data={data.evolution} />
-            <section>
-              <SectionHeader
-                title="Estado provincial"
-                description="Ocho provincias andaluzas: llenado, severidad y tendencia."
-              />
-              <div className="mt-3 space-y-4">
-                <ProvinceStatusGrid provinces={data.provinces} />
-                <ProvinceStatusMap provinces={data.provinces} />
-              </div>
-            </section>
           </div>
-          <div className="space-y-6">
+          <div className="flex flex-col gap-4">
             <SeverityDistributionCard items={data.severity} />
             <InsightsPanel insights={data.insights} />
           </div>
         </div>
+
+        <section className="space-y-4">
+          <SectionHeader
+            title="Estado provincial"
+            description="Ocho provincias andaluzas: llenado, severidad y tendencia."
+          />
+          <ProvinceStatusGrid provinces={data.provinces} />
+          <div className="w-full">
+            <ProvinceStatusMap provinces={data.provinces} />
+          </div>
+        </section>
+
         <ClimateIndicatorsRow indicators={data.climate} />
         <ReservoirTable rows={data.reservoirs} />
         {data.dataNotes.length > 0 ? (
