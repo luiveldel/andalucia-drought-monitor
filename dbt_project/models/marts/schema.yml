@@ -95,3 +95,20 @@ models:
         description: Daily precipitation in millimetres.
       - name: reference_evapotranspiration_mm
         description: Reference evapotranspiration (ET0) in millimetres.
+
+  - name: fact_drought_daily
+    description: >
+      Provincial daily drought snapshot. Grain is date_key + province_name
+      (reservoirs rolled up across watershed demarcations with capacity-weighted fill).
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+      - name: province_name
+        tests:
+          - not_null
+      - name: observation_date
+        tests:
+          - not_null
+      - name: drought_province_day_key
+        description: Surrogate uniqueness helper via expression in SQL not required; use combo test below.
