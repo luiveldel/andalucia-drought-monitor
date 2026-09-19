@@ -335,19 +335,27 @@ def load_dashboard_data() -> dict[str, Any]:
                 SELECT MAX(observation_date) AS d FROM {MARTS_SCHEMA}.fact_drought_daily
             ),
             cur AS (
-                SELECT f.province_name, f.avg_fill_pct, f.hydric_stress_index, f.daily_water_deficit_mm
+                SELECT
+                    f.province_name,
+                    AVG(f.avg_fill_pct)::float AS avg_fill_pct,
+                    AVG(f.hydric_stress_index)::float AS hydric_stress_index,
+                    AVG(f.daily_water_deficit_mm)::float AS daily_water_deficit_mm
                 FROM {MARTS_SCHEMA}.fact_drought_daily f
                 CROSS JOIN latest l
                 WHERE f.observation_date = l.d
+                GROUP BY f.province_name
             ),
             prev AS (
-                SELECT f.province_name, f.avg_fill_pct AS fill_7d_ago
+                SELECT
+                    f.province_name,
+                    AVG(f.avg_fill_pct)::float AS fill_7d_ago
                 FROM {MARTS_SCHEMA}.fact_drought_daily f
                 CROSS JOIN latest l
                 WHERE f.observation_date = (
                     SELECT MAX(observation_date) FROM {MARTS_SCHEMA}.fact_drought_daily
                     WHERE observation_date <= l.d - INTERVAL '7 days'
                 )
+                GROUP BY f.province_name
             )
             SELECT
                 c.province_name AS province,
@@ -357,7 +365,7 @@ def load_dashboard_data() -> dict[str, Any]:
                 ROUND(c.daily_water_deficit_mm::numeric, 2)::float AS deficit_mm
             FROM cur c
             LEFT JOIN prev p ON c.province_name = p.province_name
-            ORDER BY c.avg_fill_pct ASC, c.hydric_stress_index DESC
+            ORDER BY c.avg_fill_pct ASC, c.hydric_stress_index DESC NULLS LAST
             """,
         )
         for r in risk_board:

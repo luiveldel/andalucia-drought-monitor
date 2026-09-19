@@ -152,15 +152,13 @@ function buildSeverity(api: ApiPayload): SeverityDistributionItem[] {
 
 function buildProvinces(api: ApiPayload): ProvinceStatus[] {
   const board = api.risk_board ?? [];
-  if (board.length) {
-    return board.map((r) => ({
-      province: r.province,
-      fillPercentage: Number(r.fill_pct),
-      severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
-      trend: Number(r.trend_7d),
-    }));
-  }
-  return (api.province_rows ?? []).map((p) => {
+  const fromBoard = board.map((r) => ({
+    province: r.province,
+    fillPercentage: Number(r.fill_pct),
+    severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
+    trend: Number(r.trend_7d),
+  }));
+  const fromRows = (api.province_rows ?? []).map((p) => {
     const fill = Number(p.avg_fill_pct ?? p.fill_pct ?? 0);
     return {
       province: String(p.province_name ?? p.province ?? ""),
@@ -168,6 +166,18 @@ function buildProvinces(api: ApiPayload): ProvinceStatus[] {
       severity: severityFromFill(fill),
     };
   });
+  const source = fromBoard.length ? fromBoard : fromRows;
+  // One card per province (marts may contain duplicate daily grains).
+  const byName = new Map<string, (typeof source)[number]>();
+  for (const row of source) {
+    const key = row.province.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+    if (!key) continue;
+    const prev = byName.get(key);
+    if (!prev || row.fillPercentage < prev.fillPercentage) {
+      byName.set(key, row);
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.province.localeCompare(b.province, "es"));
 }
 
 function buildClimate(api: ApiPayload): ClimateIndicator[] {
