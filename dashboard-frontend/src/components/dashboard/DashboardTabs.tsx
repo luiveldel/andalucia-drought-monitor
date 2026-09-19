@@ -82,7 +82,7 @@ export function DashboardSidebar() {
           )}
         >
           <img
-            src="/brand/emblema-junta-andalucia.svg"
+            src="/brand/emblema-junta-andalucia-64.png"
             alt=""
             width={32}
             height={32}
