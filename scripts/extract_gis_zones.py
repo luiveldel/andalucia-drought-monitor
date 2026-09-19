@@ -16,7 +16,7 @@ import geopandas as gpd
 import requests
 from sqlalchemy import text
 
-from common import DEFAULT_HEADERS, get_engine_with_schema, load_settings
+from common import DEFAULT_HEADERS, get_dwh_connection_string, get_engine_with_schema, load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -103,29 +103,71 @@ def process_with_geopandas(file_path: Path) -> gpd.GeoDataFrame:
 
 
 def load_to_postgres(gdf: gpd.GeoDataFrame) -> int:
-    engine = get_engine_with_schema(settings['schema'])
+    """Write GeoDataFrame to PostGIS without pandas.to_sql / to_postgis.
+
+    Airflow's pandas 2.2 + SQLAlchemy 1.4 combo breaks both helpers
+    ("geometry not a string" / "no attribute cursor").
+    """
+    engine = get_engine_with_schema(settings["schema"])
+    schema = settings["schema"]
+    full_table = f"{schema}.{RAW_TABLE}"
+
+    df = gdf.drop(columns=[gdf.geometry.name]).copy()
+    df["_geometry_wkt"] = gdf.geometry.to_wkt()
+    df = df.where(df.notna(), None)
+
+    col_defs: list[str] = []
+    for col, dtype in df.dtypes.items():
+        dtype_s = str(dtype)
+        if col == "_geometry_wkt":
+            col_defs.append(f'"{col}" text')
+        elif dtype_s.startswith("datetime"):
+            col_defs.append(f'"{col}" timestamptz')
+        elif dtype_s.startswith("int"):
+            col_defs.append(f'"{col}" bigint')
+        elif dtype_s.startswith("float"):
+            col_defs.append(f'"{col}" double precision')
+        elif dtype_s == "bool":
+            col_defs.append(f'"{col}" boolean')
+        else:
+            col_defs.append(f'"{col}" text')
+
+    columns = list(df.columns)
+    col_list = ", ".join(f'"{c}"' for c in columns)
+    placeholders = ", ".join(f":{c}" for c in columns)
+    rows = df.to_dict(orient="records")
 
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-        conn.execute(text(f"DROP TABLE IF EXISTS {settings['schema']}.{RAW_TABLE} CASCADE"))
-
-    gdf.to_postgis(
-        name=RAW_TABLE,
-        con=engine,
-        schema=settings['schema'],
-        if_exists="fail",  # la tabla ya no existe, falla si algo fue mal
-        index=False,
-    )
-
-    with engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {full_table} CASCADE"))
+        conn.execute(text(f"CREATE TABLE {full_table} ({', '.join(col_defs)})"))
+        if rows:
+            conn.execute(
+                text(f"INSERT INTO {full_table} ({col_list}) VALUES ({placeholders})"),
+                rows,
+            )
+        conn.execute(
+            text(
+                f"ALTER TABLE {full_table} "
+                f"ADD COLUMN geometry geometry(MultiPolygon, 4326)"
+            )
+        )
+        conn.execute(
+            text(
+                f"UPDATE {full_table} SET geometry = "
+                f"ST_Multi(ST_SetSRID(ST_GeomFromText(_geometry_wkt), 4326))"
+            )
+        )
+        conn.execute(text(f"ALTER TABLE {full_table} DROP COLUMN _geometry_wkt"))
         conn.execute(
             text(
                 f"CREATE INDEX IF NOT EXISTS idx_{RAW_TABLE}_geom "
-                f"ON {settings['schema']}.{RAW_TABLE} USING GIST (geometry)"
+                f"ON {full_table} USING GIST (geometry)"
             )
         )
 
     return len(gdf)
+
 
 
 def run(url: str | None = None) -> int:
