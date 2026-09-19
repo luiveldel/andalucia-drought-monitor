@@ -3,6 +3,7 @@ import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow"
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { DashboardMobileTabs } from "@/components/dashboard/DashboardTabs";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { LoadingSkeleton } from "@/components/dashboard/LoadingSkeleton";
@@ -16,14 +17,19 @@ import { SeverityDistributionCard } from "@/components/severity/SeverityDistribu
 import { ReservoirTable } from "@/components/table/ReservoirTable";
 import { Button } from "@/components/ui/button";
 import { useDashboardQuery } from "@/hooks/useDashboardQuery";
+import { useT } from "@/i18n/useT";
+import { useTabsStore } from "@/store/tabs.store";
 
 export function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboardQuery();
+  const tab = useTabsStore((s) => s.tab);
+  const t = useT();
 
   if (isLoading) {
     return (
       <DashboardShell>
         <DashboardHeader />
+        <DashboardMobileTabs />
         <LoadingSkeleton />
       </DashboardShell>
     );
@@ -33,12 +39,13 @@ export function DashboardPage() {
     return (
       <DashboardShell>
         <DashboardHeader />
+        <DashboardMobileTabs />
         <EmptyState
-          title="No se pudo cargar el panel"
-          message={error instanceof Error ? error.message : "Error desconocido"}
+          title={t("error.title")}
+          message={error instanceof Error ? error.message : t("error.unknown")}
         />
         <Button type="button" className="mt-4" onClick={() => void refetch()}>
-          Reintentar
+          {t("error.retry")}
         </Button>
       </DashboardShell>
     );
@@ -47,46 +54,63 @@ export function DashboardPage() {
   return (
     <DashboardShell>
       <DashboardHeader updatedAt={data.updatedAt} />
-      <main className="mt-8 space-y-10">
-        <DecisionCenter
-          narrative={data.weeklyNarrative}
-          deltas={data.weeklyDeltas}
-          alerts={data.alerts}
-          recommendations={data.recommendations}
-          riskBoard={data.riskBoard}
-        />
-        <section>
-          <SectionHeader title="Indicadores clave" description="Valores del último día disponible en marts, con variación semanal." />
-          <div className="mt-3">
-            <KpiGrid kpis={data.kpis} />
-          </div>
-        </section>
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="space-y-4 xl:col-span-2">
-            <ReservoirEvolutionChart data={data.evolution} />
+      <DashboardMobileTabs />
+      <main className="mt-6 space-y-10" role="tabpanel">
+        {tab === "decision" ? (
+          <DecisionCenter
+            narrative={data.weeklyNarrative}
+            deltas={data.weeklyDeltas}
+            alerts={data.alerts}
+            recommendations={data.recommendations}
+            riskBoard={data.riskBoard}
+          />
+        ) : null}
+
+        {tab === "overview" ? (
+          <>
             <section>
-              <SectionHeader
-                title="Estado provincial"
-                description="Ocho provincias andaluzas: llenado, severidad y tendencia."
-              />
-              <div className="mt-3 space-y-4">
-                <ProvinceStatusGrid provinces={data.provinces} />
-                <ProvinceStatusMap provinces={data.provinces} />
+              <SectionHeader title={t("section.kpis")} description={t("section.kpis.desc")} />
+              <div className="mt-3">
+                <KpiGrid kpis={data.kpis} />
               </div>
             </section>
-          </div>
-          <div className="space-y-6">
-            <SeverityDistributionCard items={data.severity} />
-            <InsightsPanel insights={data.insights} />
-          </div>
-        </div>
-        <SpiPanel spi={data.spi} />
-        <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
-        <ClimateIndicatorsRow indicators={data.climate} />
-        <ReservoirTable rows={data.reservoirs} />
-        {data.dataNotes.length > 0 ? (
-          <p className="text-xs text-muted dark:text-muted-dark">{data.dataNotes.join(" · ")}</p>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+              <div className="space-y-4 xl:col-span-2">
+                <ReservoirEvolutionChart data={data.evolution} />
+              </div>
+              <div className="space-y-6">
+                <SeverityDistributionCard items={data.severity} />
+                <InsightsPanel insights={data.insights} />
+              </div>
+            </div>
+            {data.dataNotes.length > 0 ? (
+              <p className="text-xs text-muted dark:text-muted-dark">{data.dataNotes.join(" · ")}</p>
+            ) : null}
+          </>
         ) : null}
+
+        {tab === "map" ? (
+          <section>
+            <SectionHeader title={t("section.provinces")} description={t("section.provinces.desc")} />
+            <div className="mt-3 space-y-4">
+              <ProvinceStatusGrid provinces={data.provinces} />
+              <ProvinceStatusMap provinces={data.provinces} />
+            </div>
+          </section>
+        ) : null}
+
+        {tab === "climate" ? (
+          <>
+            <SpiPanel spi={data.spi} />
+            <ClimateIndicatorsRow indicators={data.climate} />
+          </>
+        ) : null}
+
+        {tab === "compare" ? (
+          <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
+        ) : null}
+
+        {tab === "reservoirs" ? <ReservoirTable rows={data.reservoirs} /> : null}
       </main>
     </DashboardShell>
   );
