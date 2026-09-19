@@ -112,6 +112,8 @@ export interface DashboardSnapshot {
   tempAnomaly: TempAnomalyPoint[];
   heatStress: HeatStressSnapshot;
   exploitationSystems: ExploitationSystemsSnapshot;
+  meteoObserved: MeteoObservedSnapshot;
+  meteoForecast: MeteoForecastSnapshot;
 }
 
 
@@ -223,3 +225,104 @@ export interface ExploitationSystemsSnapshot {
   as_of?: string | null;
   systems: ExploitationSystemRow[];
 }
+
+export interface MeteoAlert {
+  severity: "critical" | "warning" | "info";
+  code: string;
+  title_es: string;
+  detail_es: string;
+}
+
+export interface MeteoObservedMetrics {
+  province_name?: string;
+  mean_temp_c?: number | null;
+  max_temp_c?: number | null;
+  min_temp_c?: number | null;
+  feels_like_c?: number | null;
+  mean_humidity_pct?: number | null;
+  precip_mm?: number | null;
+  mean_wind_speed?: number | null;
+  mean_wind_direction_deg?: number | null;
+  wind_dir_label?: string | null;
+  solar_radiation?: number | null;
+  et0_mm?: number | null;
+  condition?: string;
+  condition_label_es?: string;
+  pressure_hpa?: number | null;
+  precip_probability?: number | null;
+  uv_index?: number | null;
+}
+
+export interface MeteoTrendDay {
+  date: string;
+  mean_temp_c: number;
+  mean_humidity_pct: number;
+  precip_mm: number;
+}
+
+export interface MeteoObservedSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  grain?: string;
+  note?: string;
+  regional?: MeteoObservedMetrics | null;
+  by_province?: MeteoObservedMetrics[];
+  trend_days?: MeteoTrendDay[];
+  alerts?: MeteoAlert[];
+}
+
+export interface MeteoForecastCurrent {
+  temp_c?: number | null;
+  feels_like_c?: number | null;
+  humidity_pct?: number | null;
+  precip_probability?: number | null;
+  pressure_hpa?: number | null;
+  wind_speed?: number | null;
+  wind_dir?: number | null;
+  uv_index?: number | null;
+  weather_code?: number | null;
+  condition?: string;
+  condition_label_es?: string;
+  time?: string;
+}
+
+export interface MeteoForecastHour {
+  time: string;
+  temp_c?: number | null;
+  humidity_pct?: number | null;
+  precip_probability?: number | null;
+  feels_like_c?: number | null;
+  weather_code?: number | null;
+  condition?: string;
+  condition_label_es?: string;
+}
+
+export interface MeteoForecastDay {
+  date: string;
+  t_max?: number | null;
+  t_min?: number | null;
+  precip_sum?: number | null;
+  precip_probability_max?: number | null;
+  uv_index_max?: number | null;
+  wind_speed_max?: number | null;
+  weather_code?: number | null;
+  condition?: string;
+  condition_label_es?: string;
+}
+
+export interface MeteoForecastSnapshot {
+  available: boolean;
+  source?: string;
+  attribution?: string;
+  location_label?: string;
+  latitude?: number;
+  longitude?: number;
+  generated_at?: string | null;
+  error?: string | null;
+  current?: MeteoForecastCurrent | null;
+  hourly_today?: MeteoForecastHour[];
+  daily?: MeteoForecastDay[];
+  alerts?: MeteoAlert[];
+}
+
+

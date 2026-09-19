@@ -61,6 +61,8 @@ def _empty_payload() -> dict[str, Any]:
         "temp_anomaly": [],
         "heat_stress": {"available": False, "as_of": None, "latest": [], "recent_days": []},
         "exploitation_systems": {"available": False, "as_of": None, "systems": []},
+        "meteo_observed": {"available": False, "as_of": None, "grain": "daily", "note": "", "regional": None, "by_province": [], "trend_days": [], "alerts": []},
+        "meteo_forecast": {"available": False, "source": "Open-Meteo", "attribution": "https://open-meteo.com", "location_label": "Andalucía (centroide)", "latitude": 37.39, "longitude": -5.99, "generated_at": None, "error": None, "current": None, "hourly_today": [], "daily": [], "alerts": []},
         "stress_evolution": [],
         "reservoir_rows": [],
         "province_map_kpis": [],
@@ -577,9 +579,13 @@ def load_dashboard_data() -> dict[str, Any]:
         )
 
         from app.climate_extras import load_exploitation_systems, load_heat_stress
+        from app.meteo_observed import load_meteo_observed
+        from app.meteo_forecast import load_meteo_forecast
 
         heat_stress = load_heat_stress(conn)
         exploitation_systems = load_exploitation_systems(conn)
+        meteo_observed = load_meteo_observed(conn)
+        meteo_forecast = load_meteo_forecast()
 
         stress_evolution = _rows(
             conn,
@@ -766,6 +772,8 @@ def load_dashboard_data() -> dict[str, Any]:
             "temp_anomaly": temp_anomaly,
             "heat_stress": heat_stress,
             "exploitation_systems": exploitation_systems,
+            "meteo_observed": meteo_observed,
+            "meteo_forecast": meteo_forecast,
             "stress_evolution": stress_evolution,
             "reservoir_rows": reservoir_rows,
             "province_map_kpis": province_map_kpis,
@@ -778,5 +786,6 @@ def load_dashboard_data() -> dict[str, Any]:
                 "Precipitación = avg_precipitation_mm (mm), no volumen de embalse.",
                 "Déficit hídrico diario = ET0 − precip (mm); no es SPI-12.",
                 "SPI-12 pendiente de serie climática de referencia en marts.",
+                "Meteo observado = RIA diario; pronóstico = Open-Meteo (centroide Andalucía).",
             ],
         }

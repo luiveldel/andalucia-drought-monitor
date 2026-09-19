@@ -17,6 +17,8 @@ import type {
   TempAnomalyPoint,
   HeatStressSnapshot,
   ExploitationSystemsSnapshot,
+  MeteoObservedSnapshot,
+  MeteoForecastSnapshot,
 } from "@/types/dashboard-model";
 
 type ApiPayload = {
@@ -51,6 +53,8 @@ type ApiPayload = {
   temp_anomaly?: TempAnomalyPoint[];
   heat_stress?: HeatStressSnapshot;
   exploitation_systems?: ExploitationSystemsSnapshot;
+  meteo_observed?: MeteoObservedSnapshot;
+  meteo_forecast?: MeteoForecastSnapshot;
 };
 
 function severityFromFill(fill: number): SeverityLevel {
@@ -315,8 +319,29 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       as_of: null,
       systems: [],
     },
+    meteoObserved: api.meteo_observed ?? {
+      available: false,
+      as_of: null,
+      grain: "daily",
+      note: "",
+      regional: null,
+      by_province: [],
+      trend_days: [],
+      alerts: [],
+    },
+    meteoForecast: api.meteo_forecast ?? {
+      available: false,
+      source: "Open-Meteo",
+      attribution: "https://open-meteo.com",
+      location_label: "Andalucía (centroide)",
+      current: null,
+      hourly_today: [],
+      daily: [],
+      alerts: [],
+    },
   };
 }
+
 
 export async function fetchDashboardSnapshot(
   range: DashboardTimeRange,
