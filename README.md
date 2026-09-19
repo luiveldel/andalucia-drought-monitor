@@ -53,3 +53,17 @@ cd dashboard-frontend
 npm install
 npm run dev   # proxy /api → VITE_PROXY_TARGET o localhost:8000
 ```
+
+## Secretos y despliegue (`.env`)
+
+1. En la raíz del repo: `cp .env.example .env`
+2. Pon la clave de Carto Basemaps en `VITE_CARTO_API_KEY=...` (pídela en https://carto.com/basemaps/apikey/ — es gratuita).
+3. Arranca con `make up` o `make dashboard-up` (el Makefile pasa `--env-file .env`).
+4. El mapa usa el parámetro de URL `?key=` (no `api_key`). Si ves la marca de agua, haz hard-refresh (Ctrl+Shift+R): el CDN y el navegador cachean las teselas.
+
+Docker Compose también lee `docker/../.env` para el servicio `dashboard-frontend` y pasa la variable al contenedor (runtime) y como build arg. El `.env` está en `.gitignore` y en `.dockerignore`: no se copia dentro de la imagen.
+
+## Marca / emblema
+
+El logo del panel usa el [Emblema de la Junta de Andalucía 2020](https://commons.wikimedia.org/wiki/File:Emblema_de_la_Junta_de_Andaluc%C3%ADa_2020.svg)
+(`dashboard-frontend/public/brand/emblema-junta-andalucia.svg`), licencia **CC BY-SA 4.0**.

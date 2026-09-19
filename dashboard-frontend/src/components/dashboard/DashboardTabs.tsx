@@ -81,9 +81,14 @@ export function DashboardSidebar() {
             collapsed ? "justify-center" : "",
           )}
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta text-xs font-bold text-white">
-            SA
-          </span>
+          <img
+            src="/brand/emblema-junta-andalucia.svg"
+            alt=""
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0 object-contain"
+            decoding="async"
+          />
           {!collapsed && (
             <span className="min-w-0 overflow-hidden text-left">
               <span className="block truncate text-sm font-semibold text-ink dark:text-ink-dark">
@@ -103,7 +108,19 @@ export function DashboardSidebar() {
       >
         <NavButtons collapsed={collapsed} />
       </nav>
-      <div className="relative z-10 border-t border-black/10 px-2 py-2 dark:border-white/10">
+      <div className="relative z-10 space-y-1 border-t border-black/10 px-2 py-2 dark:border-white/10">
+        {!collapsed ? (
+          <p className="px-1 text-[9px] leading-snug text-muted dark:text-muted-dark">
+            <a
+              className="underline-offset-2 hover:underline"
+              href="https://commons.wikimedia.org/wiki/File:Emblema_de_la_Junta_de_Andaluc%C3%ADa_2020.svg"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("nav.attribution")}
+            </a>
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={() => toggleCollapsed()}
