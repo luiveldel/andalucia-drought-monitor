@@ -8,9 +8,12 @@ services:
   postgres:
     image: imresamu/postgis:16-3.4  # multi-arch (VPS aarch64)
     container_name: agro-postgres
+    env_file:
+      - path: ../.env
+        required: false
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
@@ -21,6 +24,7 @@ services:
       retries: 5
     networks:
       - agro-network
+      - data-flight-pipeline_default
     restart: unless-stopped
 
   dashboard-api:
@@ -32,12 +36,12 @@ services:
       - path: ../.env
         required: false
     environment:
-      POSTGRES_DWH_HOST: postgres
-      POSTGRES_DWH_PORT: "5432"
-      POSTGRES_DWH_DB: agro_sequia
-      POSTGRES_DWH_USER: dwh_user
-      POSTGRES_DWH_PASSWORD: dwh_password
-      POSTGRES_DWH_SCHEMA: marts
+      POSTGRES_DWH_HOST: ${POSTGRES_DWH_HOST:-postgres}
+      POSTGRES_DWH_PORT: ${POSTGRES_DWH_PORT:-5432}
+      POSTGRES_DWH_DB: ${POSTGRES_DWH_DB:-agro_sequia}
+      POSTGRES_DWH_USER: ${POSTGRES_DWH_USER:-dwh_user}
+      POSTGRES_DWH_PASSWORD: ${POSTGRES_DWH_PASSWORD:-dwh_password}
+      POSTGRES_DWH_SCHEMA: ${POSTGRES_DWH_SCHEMA:-marts}
       AEMET_API_KEY: ${AEMET_API_KEY:-}
     depends_on:
       postgres:
@@ -77,4 +81,7 @@ networks:
   agro-network:
     driver: bridge
   web_proxy:
+    external: true
+  # So Airflow (data-flight-pipeline) can reach agro-postgres by hostname
+  data-flight-pipeline_default:
     external: true
