@@ -4,14 +4,14 @@ export type ClimateSubTab = "forecast" | "observed";
 
 const ITEMS: { id: ClimateSubTab; label: string; description: string }[] = [
   {
-    id: "forecast",
-    label: "Pronóstico",
-    description: "AEMET / Open-Meteo · horizonte corto",
-  },
-  {
     id: "observed",
     label: "Observado y riesgo",
     description: "RIA, SPI, anomalías y estrés",
+  },
+  {
+    id: "forecast",
+    label: "Pronóstico",
+    description: "AEMET / Open-Meteo · horizonte corto",
   },
 ];
 

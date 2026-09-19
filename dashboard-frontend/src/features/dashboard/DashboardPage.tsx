@@ -31,7 +31,7 @@ export function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboardQuery();
   const tab = useTabsStore((s) => s.tab);
   const t = useT();
-  const [climateSub, setClimateSub] = useState<ClimateSubTab>("forecast");
+  const [climateSub, setClimateSub] = useState<ClimateSubTab>("observed");
 
   if (isLoading) {
     return (
