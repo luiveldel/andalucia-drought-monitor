@@ -124,6 +124,7 @@ export interface DashboardSnapshot {
   heatStress: HeatStressSnapshot;
   exploitationSystems: ExploitationSystemsSnapshot;
   meteoObserved: MeteoObservedSnapshot;
+  meteoSiar: MeteoSiarSnapshot;
   meteoForecast: MeteoForecastSnapshot;
 }
 
@@ -257,6 +258,44 @@ export interface MeteoTrendDay {
   mean_temp_c: number;
   mean_humidity_pct: number;
   precip_mm: number;
+}
+
+
+export interface MeteoSiarMetrics {
+  province_name?: string;
+  station_count?: number;
+  mean_temp_c?: number | null;
+  max_temp_c?: number | null;
+  min_temp_c?: number | null;
+  mean_humidity_pct?: number | null;
+  precip_mm?: number | null;
+  mean_wind_speed?: number | null;
+  mean_wind_direction_deg?: number | null;
+  wind_dir_label?: string | null;
+  solar_radiation?: number | null;
+  et0_mm?: number | null;
+  effective_precip_mm?: number | null;
+}
+
+export interface MeteoSiarTrendDay {
+  date: string;
+  mean_temp_c: number;
+  mean_humidity_pct: number;
+  precip_mm: number;
+  et0_mm?: number;
+}
+
+export interface MeteoSiarSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  grain?: string;
+  source?: string;
+  attribution?: string;
+  note?: string;
+  station_count?: number;
+  regional?: MeteoSiarMetrics | null;
+  by_province?: MeteoSiarMetrics[];
+  trend_days?: MeteoSiarTrendDay[];
 }
 
 export interface MeteoObservedSnapshot {

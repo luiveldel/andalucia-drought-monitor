@@ -17,6 +17,7 @@ import type {
   HeatStressSnapshot,
   ExploitationSystemsSnapshot,
   MeteoObservedSnapshot,
+  MeteoSiarSnapshot,
   MeteoForecastSnapshot,
 } from "@/types/dashboard-model";
 
@@ -51,6 +52,7 @@ type ApiPayload = {
   heat_stress?: HeatStressSnapshot;
   exploitation_systems?: ExploitationSystemsSnapshot;
   meteo_observed?: MeteoObservedSnapshot;
+  meteo_siar?: MeteoSiarSnapshot;
   climate_by_province?: Record<string, ClimateProvinceMetrics>;
   meteo_forecast?: MeteoForecastSnapshot;
 };
@@ -282,6 +284,18 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       trend_days: [],
       trend_by_province: {},
       alerts: [],
+    },
+    meteoSiar: api.meteo_siar ?? {
+      available: false,
+      as_of: null,
+      grain: "daily",
+      source: "SiAR",
+      attribution: "https://servicio.mapa.gob.es/siarweb/",
+      note: "",
+      station_count: 0,
+      regional: null,
+      by_province: [],
+      trend_days: [],
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {

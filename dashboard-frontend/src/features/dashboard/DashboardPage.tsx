@@ -9,6 +9,7 @@ import { CLIMATE_REGIONAL, type ClimateProvince } from "@/constants/provinces";
 import { buildClimateIndicators } from "@/services/dashboard/dashboard.service";
 import { ForecastPanel } from "@/components/climate/ForecastPanel";
 import { ObservedMeteoPanel } from "@/components/climate/ObservedMeteoPanel";
+import { SiarObservedPanel } from "@/components/climate/SiarObservedPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -128,6 +129,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <ObservedMeteoPanel meteo={data.meteoObserved} province={climateProvince} />
+                <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
                 <ClimateIndicatorsRow
                   indicators={climateIndicators}
                   scopeLabel={climateProvince}
