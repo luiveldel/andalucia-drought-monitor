@@ -155,7 +155,13 @@ def load_province_compare(conn: Connection, a: str, b: str) -> dict[str, Any]:
             sev = "critical"
         trend = float(row.get("trend_7d") or 0)
         stress = float(row.get("stress") or 0)
-        risk = max(0.0, min(100.0, (100 - fill) * 0.55 + stress * 35 + max(0.0, -trend) * 3))
+        deficit = float(row.get("deficit_mm") or 0)
+        # Same weights as marts.fact_province_risk_daily (stress ~0–20, not 0–1).
+        risk = (
+            0.50 * max(0.0, min(100.0, 100.0 - fill))
+            + 0.35 * max(0.0, min(100.0, deficit * 12.0))
+            + 0.15 * max(0.0, min(100.0, abs(stress) * 25.0))
+        )
 
         spi_rows: list[dict[str, Any]] = []
         try:

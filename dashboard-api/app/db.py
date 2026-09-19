@@ -333,54 +333,106 @@ def load_dashboard_data() -> dict[str, Any]:
             latest_date=latest_date,
         )
 
-        risk_board = _rows(
-            conn,
-            f"""
-            WITH latest AS (
-                SELECT MAX(observation_date) AS d FROM {MARTS_SCHEMA}.fact_drought_daily
-            ),
-            cur AS (
-                SELECT
-                    f.province_name,
-                    AVG(f.avg_fill_pct)::float AS avg_fill_pct,
-                    AVG(f.hydric_stress_index)::float AS hydric_stress_index,
-                    AVG(f.daily_water_deficit_mm)::float AS daily_water_deficit_mm
-                FROM {MARTS_SCHEMA}.fact_drought_daily f
-                CROSS JOIN latest l
-                WHERE f.observation_date = l.d
-                GROUP BY f.province_name
-            ),
-            prev AS (
-                SELECT
-                    f.province_name,
-                    AVG(f.avg_fill_pct)::float AS fill_7d_ago
-                FROM {MARTS_SCHEMA}.fact_drought_daily f
-                CROSS JOIN latest l
-                WHERE f.observation_date = (
-                    SELECT MAX(observation_date) FROM {MARTS_SCHEMA}.fact_drought_daily
-                    WHERE observation_date <= l.d - INTERVAL '7 days'
+        # Prefer dbt mart (sensible 0–100 weights). Fallback recomputes the same heuristic.
+        try:
+            risk_board = _rows(
+                conn,
+                f"""
+                WITH latest AS (
+                    SELECT MAX(observation_date) AS d
+                    FROM {MARTS_SCHEMA}.fact_province_risk_daily
+                ),
+                cur AS (
+                    SELECT r.*
+                    FROM {MARTS_SCHEMA}.fact_province_risk_daily AS r
+                    CROSS JOIN latest AS l
+                    WHERE r.observation_date = l.d
+                ),
+                prev AS (
+                    SELECT
+                        f.province_name,
+                        AVG(f.avg_fill_pct)::float AS fill_7d_ago
+                    FROM {MARTS_SCHEMA}.fact_drought_daily AS f
+                    CROSS JOIN latest AS l
+                    WHERE f.observation_date = (
+                        SELECT MAX(observation_date)
+                        FROM {MARTS_SCHEMA}.fact_drought_daily
+                        WHERE observation_date <= l.d - INTERVAL '7 days'
+                    )
+                    GROUP BY f.province_name
                 )
-                GROUP BY f.province_name
+                SELECT
+                    c.province_name AS province,
+                    ROUND(c.avg_fill_pct::numeric, 1)::float AS fill_pct,
+                    ROUND(COALESCE(c.avg_fill_pct - p.fill_7d_ago, 0)::numeric, 1)::float AS trend_7d,
+                    ROUND(c.hydric_stress_index::numeric, 3)::float AS stress,
+                    ROUND(c.daily_water_deficit_mm::numeric, 2)::float AS deficit_mm,
+                    ROUND(c.risk_score::numeric, 1)::float AS risk_score,
+                    c.severity AS risk_band
+                FROM cur AS c
+                LEFT JOIN prev AS p ON c.province_name = p.province_name
+                ORDER BY c.risk_score DESC, c.avg_fill_pct ASC
+                """,
             )
-            SELECT
-                c.province_name AS province,
-                ROUND(c.avg_fill_pct::numeric, 1)::float AS fill_pct,
-                ROUND(COALESCE(c.avg_fill_pct - p.fill_7d_ago, 0)::numeric, 1)::float AS trend_7d,
-                ROUND(c.hydric_stress_index::numeric, 3)::float AS stress,
-                ROUND(c.daily_water_deficit_mm::numeric, 2)::float AS deficit_mm
-            FROM cur c
-            LEFT JOIN prev p ON c.province_name = p.province_name
-            ORDER BY c.avg_fill_pct ASC, c.hydric_stress_index DESC NULLS LAST
-            """,
-        )
+        except Exception:
+            conn.rollback()
+            risk_board = []
+
+        if not risk_board:
+            risk_board = _rows(
+                conn,
+                f"""
+                WITH latest AS (
+                    SELECT MAX(observation_date) AS d FROM {MARTS_SCHEMA}.fact_drought_daily
+                ),
+                cur AS (
+                    SELECT
+                        f.province_name,
+                        AVG(f.avg_fill_pct)::float AS avg_fill_pct,
+                        AVG(f.hydric_stress_index)::float AS hydric_stress_index,
+                        AVG(f.daily_water_deficit_mm)::float AS daily_water_deficit_mm
+                    FROM {MARTS_SCHEMA}.fact_drought_daily f
+                    CROSS JOIN latest l
+                    WHERE f.observation_date = l.d
+                    GROUP BY f.province_name
+                ),
+                prev AS (
+                    SELECT
+                        f.province_name,
+                        AVG(f.avg_fill_pct)::float AS fill_7d_ago
+                    FROM {MARTS_SCHEMA}.fact_drought_daily f
+                    CROSS JOIN latest l
+                    WHERE f.observation_date = (
+                        SELECT MAX(observation_date) FROM {MARTS_SCHEMA}.fact_drought_daily
+                        WHERE observation_date <= l.d - INTERVAL '7 days'
+                    )
+                    GROUP BY f.province_name
+                )
+                SELECT
+                    c.province_name AS province,
+                    ROUND(c.avg_fill_pct::numeric, 1)::float AS fill_pct,
+                    ROUND(COALESCE(c.avg_fill_pct - p.fill_7d_ago, 0)::numeric, 1)::float AS trend_7d,
+                    ROUND(c.hydric_stress_index::numeric, 3)::float AS stress,
+                    ROUND(c.daily_water_deficit_mm::numeric, 2)::float AS deficit_mm
+                FROM cur c
+                LEFT JOIN prev p ON c.province_name = p.province_name
+                ORDER BY c.avg_fill_pct ASC
+                """,
+            )
+            for r in risk_board:
+                fill = float(r.get("fill_pct") or 0)
+                stress = float(r.get("stress") or 0)
+                deficit = float(r.get("deficit_mm") or 0)
+                # Same weights as fact_province_risk_daily (do NOT multiply raw stress by 35).
+                risk = (
+                    0.50 * max(0.0, min(100.0, 100.0 - fill))
+                    + 0.35 * max(0.0, min(100.0, deficit * 12.0))
+                    + 0.15 * max(0.0, min(100.0, abs(stress) * 25.0))
+                )
+                r["risk_score"] = round(risk, 1)
+
         for r in risk_board:
             r["severity"] = _severity_from_fill(float(r.get("fill_pct") or 0))
-            # composite risk 0-100
-            fill = float(r.get("fill_pct") or 0)
-            stress = float(r.get("stress") or 0)
-            trend = float(r.get("trend_7d") or 0)
-            risk = max(0.0, min(100.0, (100 - fill) * 0.55 + stress * 35 + max(0.0, -trend) * 3))
-            r["risk_score"] = round(risk, 1)
 
         # Same metric as KPI avg_fill_pct (province rollup in fact_drought_daily).
         # Wide window: embalses/drought snapshots are sparse, so 45d often yields 1 point.

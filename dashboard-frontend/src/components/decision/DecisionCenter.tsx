@@ -35,7 +35,7 @@ export function DecisionCenter(props: {
   recommendations: DecisionRecommendation[];
   riskBoard: RiskBoardRow[];
 }) {
-  const topRisk = [...props.riskBoard].sort((a, b) => b.risk_score - a.risk_score).slice(0, 5);
+  const topRisk = [...props.riskBoard].sort((a, b) => b.risk_score - a.risk_score);
   return (
     <section className="space-y-4">
       <SectionHeader
