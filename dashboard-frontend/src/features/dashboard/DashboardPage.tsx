@@ -115,7 +115,6 @@ export function DashboardPage() {
             ) : (
               <>
                 <ObservedMeteoPanel meteo={data.meteoObserved} />
-                <SpiPanel spi={data.spi} />
                 <ClimateIndicatorsRow indicators={data.climate} />
                 <MonthlyAnomalyPanel
                   monthlyPrecip={data.monthlyPrecip}
@@ -123,6 +122,7 @@ export function DashboardPage() {
                 />
                 <HeatStressPanel heatStress={data.heatStress} />
                 <ExploitationSystemsPanel systems={data.exploitationSystems} />
+                <SpiPanel spi={data.spi} />
               </>
             )}
           </div>
