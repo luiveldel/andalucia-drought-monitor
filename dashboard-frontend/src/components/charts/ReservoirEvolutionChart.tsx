@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/i18n/useT";
 import type { ReservoirTimePoint } from "@/types/dashboard-model";
 import { useMemo } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 } from "recharts";
 
 export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
+  const t = useT();
   const series = useMemo(() => {
     const byDate = new Map<string, number[]>();
     for (const r of props.data) {
@@ -31,8 +33,8 @@ export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
   return (
     <Card className="min-h-[320px]">
       <CardHeader>
-        <CardTitle>Regional reservoir fill (monthly)</CardTitle>
-        <p className="text-xs text-muted dark:text-muted-dark">Average fill % across monitored basins for the selected range.</p>
+        <CardTitle>{t("chart.title")}</CardTitle>
+        <p className="text-xs text-muted dark:text-muted-dark">{t("chart.desc")}</p>
       </CardHeader>
       <CardContent className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -42,11 +44,11 @@ export function ReservoirEvolutionChart(props: { data: ReservoirTimePoint[] }) {
             <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={32} unit="%" />
             <Tooltip
               contentStyle={{ fontSize: 12 }}
-              formatter={(v) => [`${Number(v).toFixed(1)}%`, "Avg fill"]}
+              formatter={(v) => [`${Number(v).toFixed(1)}%`, t("chart.tooltip")]}
               labelFormatter={(l) => String(l)}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="avg" name="Avg fill %" stroke="#1A6FA3" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="avg" name={t("chart.series")} stroke="#1A6FA3" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

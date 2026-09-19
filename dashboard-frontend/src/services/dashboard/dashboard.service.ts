@@ -135,24 +135,38 @@ function buildKpis(api: ApiPayload): DashboardKpi[] {
   return kpis;
 }
 
+function rangeDays(range: DashboardTimeRange): number {
+  if (range === "30d") return 30;
+  if (range === "90d") return 90;
+  return 400;
+}
+
 function buildEvolution(api: ApiPayload, range: DashboardTimeRange): ReservoirTimePoint[] {
-  const series = api.basin_series ?? [];
-  if (!series.length) {
-    // fallback: regional fill sparkline as single "Andalucía" series
-    return (api.sparkline_fill ?? []).map((r) => ({
-      date: r.d,
-      basin: "Andalucía",
-      percentage: Number(r.v),
-    }));
+  // Prefer daily regional fill from embalses (sparkline_fill). basin_series is yearly
+  // and only yields 1–2 points, which looks like a straight line.
+  const daily = api.sparkline_fill ?? [];
+  if (daily.length) {
+    const cutoff = new Date();
+    const latest = daily.reduce((max, r) => (r.d > max ? r.d : max), daily[0]?.d ?? "");
+    const latestMs = Date.parse(latest);
+    const minMs = Number.isFinite(latestMs) ? latestMs - rangeDays(range) * 86400000 : 0;
+    return daily
+      .filter((r) => {
+        const t = Date.parse(r.d);
+        return Number.isFinite(t) ? t >= minMs : true;
+      })
+      .map((r) => ({
+        date: r.d,
+        basin: "Andalucía",
+        percentage: Number(r.v),
+      }));
   }
-  const points: ReservoirTimePoint[] = series.map((r) => ({
+  // Fallback: hydrological-year basin averages
+  return (api.basin_series ?? []).map((r) => ({
     date: String(r.hydrological_year),
     basin: r.basin_bucket,
     percentage: Number(r.avg_fill_pct),
   }));
-  if (range === "12m") return points;
-  // hydrological years are coarse; still return all for context
-  return points;
 }
 
 function buildSeverity(api: ApiPayload): SeverityDistributionItem[] {

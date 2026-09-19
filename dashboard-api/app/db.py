@@ -382,12 +382,14 @@ def load_dashboard_data() -> dict[str, Any]:
             risk = max(0.0, min(100.0, (100 - fill) * 0.55 + stress * 35 + max(0.0, -trend) * 3))
             r["risk_score"] = round(risk, 1)
 
+        # Same metric as KPI avg_fill_pct (province rollup in fact_drought_daily).
+        # Wide window: embalses/drought snapshots are sparse, so 45d often yields 1 point.
         sparkline_fill = _rows(
             conn,
             f"""
             SELECT observation_date::text AS d, ROUND(AVG(avg_fill_pct)::numeric, 2)::float AS v
             FROM {MARTS_SCHEMA}.fact_drought_daily
-            WHERE observation_date >= :latest_date - INTERVAL '45 days'
+            WHERE observation_date >= :latest_date - INTERVAL '400 days'
             GROUP BY observation_date
             ORDER BY observation_date
             """,
