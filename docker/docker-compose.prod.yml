@@ -6,7 +6,7 @@
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4
+    image: imresamu/postgis:16-3.4  # multi-arch (VPS aarch64)
     container_name: agro-postgres
     environment:
       POSTGRES_USER: postgres
