@@ -107,4 +107,58 @@ export interface DashboardSnapshot {
   recommendations: DecisionRecommendation[];
   riskBoard: RiskBoardRow[];
   dataNotes: string[];
+  spi?: SpiSnapshot;
+}
+
+
+export interface SpiProvinceRow {
+  province_name: string;
+  month_start?: string;
+  spi_value: number | null;
+  spi_class_es?: string;
+  window_months?: number;
+  calibration_months?: number;
+  is_provisional?: boolean;
+  method_tag?: string;
+  precip_window_mm?: number;
+}
+
+export interface SpiSnapshot {
+  available: boolean;
+  provisional: boolean;
+  caveat_es: string;
+  as_of_month?: string;
+  window_months?: number | null;
+  calibration_months_max?: number | null;
+  regional_spi?: number | null;
+  provinces: SpiProvinceRow[];
+}
+
+export interface ProvinceCompareSide {
+  province: string;
+  found: boolean;
+  observation_date?: string;
+  fill_pct?: number;
+  severity?: SeverityLevel;
+  trend_7d?: number;
+  stress?: number;
+  deficit_mm?: number;
+  precip_mm?: number;
+  stored_hm3?: number;
+  risk_score?: number;
+  fill_sparkline?: Array<{ d: string; v: number }>;
+  spi?: {
+    spi_value: number | null;
+    spi_class_es?: string;
+    window_months?: number;
+    calibration_months?: number;
+    is_provisional?: boolean;
+    month_start?: string;
+  } | null;
+}
+
+export interface ProvinceCompareResponse {
+  a: ProvinceCompareSide;
+  b: ProvinceCompareSide;
+  labels_es: Record<string, string>;
 }

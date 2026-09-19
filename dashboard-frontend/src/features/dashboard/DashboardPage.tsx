@@ -1,5 +1,7 @@
 import { ReservoirEvolutionChart } from "@/components/charts/ReservoirEvolutionChart";
 import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow";
+import { SpiPanel } from "@/components/climate/SpiPanel";
+import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
@@ -53,41 +55,33 @@ export function DashboardPage() {
           recommendations={data.recommendations}
           riskBoard={data.riskBoard}
         />
-
         <section>
-          <SectionHeader
-            title="Indicadores clave"
-            description="Valores del último día disponible en marts, con variación semanal."
-          />
+          <SectionHeader title="Indicadores clave" description="Valores del último día disponible en marts, con variación semanal." />
           <div className="mt-3">
             <KpiGrid kpis={data.kpis} />
           </div>
         </section>
-
-        {/* Left column matches chart width; sidebar gets full stacked height for insights */}
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div className="space-y-4 xl:col-span-2">
             <ReservoirEvolutionChart data={data.evolution} />
             <section>
               <SectionHeader
                 title="Estado provincial"
                 description="Ocho provincias andaluzas: llenado, severidad y tendencia."
               />
-              <div className="mt-3">
+              <div className="mt-3 space-y-4">
                 <ProvinceStatusGrid provinces={data.provinces} />
+                <ProvinceStatusMap provinces={data.provinces} />
               </div>
             </section>
           </div>
-          <aside className="flex min-h-0 flex-col gap-4 xl:sticky xl:top-4">
+          <div className="space-y-6">
             <SeverityDistributionCard items={data.severity} />
             <InsightsPanel insights={data.insights} />
-          </aside>
+          </div>
         </div>
-
-        <section className="w-full">
-          <ProvinceStatusMap provinces={data.provinces} />
-        </section>
-
+        <SpiPanel spi={data.spi} />
+        <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
         <ClimateIndicatorsRow indicators={data.climate} />
         <ReservoirTable rows={data.reservoirs} />
         {data.dataNotes.length > 0 ? (

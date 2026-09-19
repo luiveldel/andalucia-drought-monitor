@@ -12,6 +12,7 @@ import type {
   SeverityDistributionItem,
   SeverityLevel,
   WeeklyDeltas,
+  SpiSnapshot,
 } from "@/types/dashboard-model";
 
 type ApiPayload = {
@@ -41,6 +42,7 @@ type ApiPayload = {
   recommendations?: DecisionRecommendation[];
   risk_board?: RiskBoardRow[];
   data_notes?: string[];
+  spi?: SpiSnapshot;
 };
 
 function severityFromFill(fill: number): SeverityLevel {
@@ -65,7 +67,7 @@ function sparkValues(rows: Array<{ d: string; v: number }> | undefined): number[
 function buildKpis(api: ApiPayload): DashboardKpi[] {
   const fill = Number(api.avg_fill_pct ?? 0);
   const deltas = api.weekly_deltas ?? { fill_pct: 0, stored_hm3: 0, precip_mm: 0, deficit_mm: 0 };
-  return [
+  const kpis: DashboardKpi[] = [
     {
       id: "fill",
       label: "Llenado medio embalses",
@@ -118,6 +120,19 @@ function buildKpis(api: ApiPayload): DashboardKpi[] {
       severity: Number(api.provinces_in_alert ?? 0) >= 4 ? "emergency" : "warning",
     },
   ];
+  const spiVal = api.spi?.regional_spi;
+  if (spiVal != null && Number.isFinite(spiVal)) {
+    const sev: SeverityLevel =
+      spiVal <= -1.5 ? "critical" : spiVal <= -1.0 ? "emergency" : spiVal < 0 ? "warning" : "normal";
+    kpis.splice(3, 0, {
+      id: "spi",
+      label: "SPI provisional",
+      value: spiVal,
+      unit: api.spi?.provisional ? "prov." : "",
+      severity: sev,
+    });
+  }
+  return kpis;
 }
 
 function buildEvolution(api: ApiPayload, range: DashboardTimeRange): ReservoirTimePoint[] {
@@ -152,13 +167,15 @@ function buildSeverity(api: ApiPayload): SeverityDistributionItem[] {
 
 function buildProvinces(api: ApiPayload): ProvinceStatus[] {
   const board = api.risk_board ?? [];
-  const fromBoard = board.map((r) => ({
-    province: r.province,
-    fillPercentage: Number(r.fill_pct),
-    severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
-    trend: Number(r.trend_7d),
-  }));
-  const fromRows = (api.province_rows ?? []).map((p) => {
+  if (board.length) {
+    return board.map((r) => ({
+      province: r.province,
+      fillPercentage: Number(r.fill_pct),
+      severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
+      trend: Number(r.trend_7d),
+    }));
+  }
+  return (api.province_rows ?? []).map((p) => {
     const fill = Number(p.avg_fill_pct ?? p.fill_pct ?? 0);
     return {
       province: String(p.province_name ?? p.province ?? ""),
@@ -166,18 +183,6 @@ function buildProvinces(api: ApiPayload): ProvinceStatus[] {
       severity: severityFromFill(fill),
     };
   });
-  const source = fromBoard.length ? fromBoard : fromRows;
-  // One card per province (marts may contain duplicate daily grains).
-  const byName = new Map<string, (typeof source)[number]>();
-  for (const row of source) {
-    const key = row.province.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
-    if (!key) continue;
-    const prev = byName.get(key);
-    if (!prev || row.fillPercentage < prev.fillPercentage) {
-      byName.set(key, row);
-    }
-  }
-  return [...byName.values()].sort((a, b) => a.province.localeCompare(b.province, "es"));
 }
 
 function buildClimate(api: ApiPayload): ClimateIndicator[] {
@@ -274,6 +279,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
     recommendations: api.recommendations ?? [],
     riskBoard: api.risk_board ?? [],
     dataNotes: api.data_notes ?? [],
+    spi: api.spi,
   };
 }
 
