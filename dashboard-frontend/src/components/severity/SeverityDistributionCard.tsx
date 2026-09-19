@@ -1,14 +1,17 @@
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
-import { severityHex, severityLabel } from "@/lib/severity";
+import { useLocale, useT } from "@/i18n/useT";
+import { severityHex, severityLabelFor } from "@/lib/severity";
 import type { SeverityDistributionItem } from "@/types/dashboard-model";
 
 export function SeverityDistributionCard(props: { items: SeverityDistributionItem[] }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <Card>
       <CardContent className="pt-4">
-        <SectionHeader title="Severity distribution" description="Share of monitored agricultural area by drought band." />
+        <SectionHeader title={t("section.severity")} description={t("section.severity.desc")} />
         <ul className="mt-2 space-y-3">
           {props.items.map((row) => (
             <li key={row.level} className="flex items-center gap-3">
@@ -32,7 +35,8 @@ export function SeverityDistributionCard(props: { items: SeverityDistributionIte
           ))}
         </ul>
         <p className="mt-3 text-[11px] text-muted dark:text-muted-dark">
-          Bands: {props.items.map((i) => `${severityLabel[i.level]} ${i.percentage}%`).join(" · ")}
+          {t("severity.bands")}{" "}
+          {props.items.map((i) => `${severityLabelFor(locale, i.level)} ${i.percentage}%`).join(" · ")}
         </p>
       </CardContent>
     </Card>

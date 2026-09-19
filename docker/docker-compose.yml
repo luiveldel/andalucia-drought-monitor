@@ -137,11 +137,15 @@ services:
     build:
       context: ../dashboard-frontend
       dockerfile: Dockerfile
+      args:
+        VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
     container_name: agro-dashboard-frontend
     ports:
       - "5173:5173"
+    # Relative to this compose file (docker/). Put secrets in repo-root .env
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false
     environment:
       VITE_PROXY_TARGET: http://dashboard-api:8000
       VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}

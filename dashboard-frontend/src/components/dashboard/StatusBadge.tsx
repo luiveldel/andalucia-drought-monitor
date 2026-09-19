@@ -1,4 +1,5 @@
-import { severityLabel } from "@/lib/severity";
+import { useLocale } from "@/i18n/useT";
+import { severityLabelFor } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 import type { SeverityLevel } from "@/types/dashboard-model";
 
@@ -10,6 +11,7 @@ const tone: Record<SeverityLevel, string> = {
 };
 
 export function StatusBadge(props: { level: SeverityLevel; className?: string }) {
+  const locale = useLocale();
   return (
     <span
       className={cn(
@@ -18,7 +20,7 @@ export function StatusBadge(props: { level: SeverityLevel; className?: string })
         props.className,
       )}
     >
-      {severityLabel[props.level]}
+      {severityLabelFor(locale, props.level)}
     </span>
   );
 }

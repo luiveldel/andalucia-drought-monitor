@@ -1,4 +1,13 @@
+import { t, type MessageKey } from "@/i18n/messages";
+import type { Locale } from "@/store/locale.store";
 import type { SeverityLevel } from "@/types/dashboard-model";
+
+const sevKey: Record<SeverityLevel, MessageKey> = {
+  normal: "sev.normal",
+  warning: "sev.warning",
+  emergency: "sev.emergency",
+  critical: "sev.critical",
+};
 
 export const severityLabel: Record<SeverityLevel, string> = {
   normal: "Normal",
@@ -6,6 +15,10 @@ export const severityLabel: Record<SeverityLevel, string> = {
   emergency: "Emergencia",
   critical: "Crítico",
 };
+
+export function severityLabelFor(locale: Locale, level: SeverityLevel): string {
+  return t(locale, sevKey[level]);
+}
 
 export function severityRingClass(level: SeverityLevel): string {
   switch (level) {

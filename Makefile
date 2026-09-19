@@ -1,5 +1,9 @@
 # Andalusia drought monitor — Docker helpers (compose file lives under docker/)
 COMPOSE := docker compose -f docker/docker-compose.yml
+# Load secrets from repo-root .env on every compose invocation (deploy + local).
+ifneq (,$(wildcard .env))
+  COMPOSE += --env-file .env
+endif
 
 .PHONY: help up down stop ps logs build pull dashboard-up dashboard-down dashboard-logs
 
@@ -14,6 +18,8 @@ help:
 	@echo "  make dashboard-up    - start dashboard-api + dashboard-frontend"
 	@echo "  make dashboard-down  - stop dashboard services"
 	@echo "  make dashboard-logs  - tail dashboard-api + dashboard-frontend logs"
+	@echo ""
+	@echo "Secrets: copy .env.example -> .env and set VITE_CARTO_API_KEY (gitignored)."
 
 up:
 	$(COMPOSE) up -d
@@ -37,7 +43,7 @@ pull:
 	$(COMPOSE) pull
 
 dashboard-up:
-	$(COMPOSE) up -d dashboard-api dashboard-frontend
+	$(COMPOSE) up -d --build dashboard-api dashboard-frontend
 
 dashboard-down:
 	$(COMPOSE) stop dashboard-api dashboard-frontend

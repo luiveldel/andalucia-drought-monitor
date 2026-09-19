@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/useT";
 import { useDashboardFilters } from "@/store/filters.store";
 import type { DashboardTimeRange } from "@/types/dashboard-model";
 
@@ -9,11 +10,14 @@ const RANGES: { id: DashboardTimeRange; label: string }[] = [
 ];
 
 export function GlobalFilters() {
+  const t = useT();
   const timeRange = useDashboardFilters((s) => s.timeRange);
   const setTimeRange = useDashboardFilters((s) => s.setTimeRange);
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="Time range">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted dark:text-muted-dark">Range</span>
+    <div className="flex flex-wrap items-center gap-2" aria-label={t("filters.aria")}>
+      <span className="text-xs font-medium uppercase tracking-wide text-muted dark:text-muted-dark">
+        {t("filters.range")}
+      </span>
       {RANGES.map((r) => (
         <Button
           key={r.id}

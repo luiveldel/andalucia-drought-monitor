@@ -2,6 +2,7 @@ import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n/useT";
 import { formatPct } from "@/lib/format";
 import type { ReservoirRecord } from "@/types/dashboard-model";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -10,6 +11,7 @@ import { useMemo, useState } from "react";
 type SortKey = "reservoir" | "basin" | "fillPercentage" | "weeklyChange";
 
 export function ReservoirTable(props: { rows: ReservoirRecord[] }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "fillPercentage",
@@ -58,31 +60,31 @@ export function ReservoirTable(props: { rows: ReservoirRecord[] }) {
 
   return (
     <section>
-      <SectionHeader title="Main reservoirs" description="Technical snapshot with weekly storage change." />
+      <SectionHeader title={t("section.reservoirs")} description={t("section.reservoirs.desc")} />
       <Card className="mt-3">
         <CardContent className="p-3">
           <div className="mb-3 max-w-xs">
-            <Input placeholder="Search reservoir, basin, province…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input placeholder={t("table.search")} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 dark:border-white/10">
-                  <Th k="reservoir">Reservoir</Th>
-                  <Th k="basin">Basin</Th>
+                  <Th k="reservoir">{t("table.reservoir")}</Th>
+                  <Th k="basin">{t("table.basin")}</Th>
                   <th className="sticky top-0 bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted dark:bg-surface-dark dark:text-muted-dark">
-                    Province
+                    {t("table.province")}
                   </th>
                   <th className="sticky top-0 bg-surface px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted dark:bg-surface-dark dark:text-muted-dark">
-                    Capacity
+                    {t("table.capacity")}
                   </th>
                   <th className="sticky top-0 bg-surface px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted dark:bg-surface-dark dark:text-muted-dark">
-                    Current
+                    {t("table.current")}
                   </th>
-                  <Th k="fillPercentage">Fill</Th>
-                  <Th k="weeklyChange">Weekly Δ</Th>
+                  <Th k="fillPercentage">{t("table.fill")}</Th>
+                  <Th k="weeklyChange">{t("table.weekly")}</Th>
                   <th className="sticky top-0 bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted dark:bg-surface-dark dark:text-muted-dark">
-                    Status
+                    {t("table.status")}
                   </th>
                 </tr>
               </thead>
