@@ -74,9 +74,19 @@ def load_spi_latest(conn: Connection) -> dict[str, Any]:
     win = max(windows) if windows else 0
     short = max_calib < 24 or win < 12
 
+    methods = {str(r.get("method_tag") or "") for r in rows}
+    cross = "spi_cross_province" in methods
     caveat = (
         f"SPI provisional (ventana {win} mes(es); calibración máx. {max_calib} mes(es)). "
-        "No es un SPI-12 WMO: la serie RIA local es corta. Úsalo solo como señal exploratoria."
+        "No es un SPI-12 WMO: la serie RIA local es corta. "
+        + (
+            "Como cada provincia solo tiene una ventana, el índice se compara entre provincias "
+            "(z-score cruzado), no contra su propia historia. "
+            if cross
+            else ""
+        )
+        + "Sí puede haber llovido: un SPI ~0 no significa precipitación cero. "
+        "Úsalo solo como señal exploratoria."
         if short
         else (
             f"SPI-12 provisional con calibración corta ({max_calib} meses). "

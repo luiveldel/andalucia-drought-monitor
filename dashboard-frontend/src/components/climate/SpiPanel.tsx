@@ -7,8 +7,14 @@ function spiTone(v: number | null | undefined) {
   if (v == null) return "text-muted dark:text-muted-dark";
   if (v <= -1.5) return "text-sev-critical";
   if (v <= -1.0) return "text-sev-emergency";
+  if (v < 0) return "text-sev-alert";
   if (v < 1.0) return "text-ink dark:text-ink-dark";
   return "text-sev-normal";
+}
+
+function classLabel(c?: string) {
+  if (!c) return "—";
+  return c.replaceAll("_", " ");
 }
 
 export function SpiPanel(props: { spi?: SpiSnapshot }) {
@@ -45,12 +51,13 @@ export function SpiPanel(props: { spi?: SpiSnapshot }) {
           </p>
           {spi.available && spi.provinces.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
+              <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="text-xs uppercase text-muted dark:text-muted-dark">
                   <tr>
                     <th className="pb-2 font-medium">Provincia</th>
                     <th className="pb-2 font-medium">SPI</th>
                     <th className="pb-2 font-medium">Clase</th>
+                    <th className="pb-2 font-medium">Precip. ventana</th>
                     <th className="pb-2 font-medium">Ventana</th>
                   </tr>
                 </thead>
@@ -61,7 +68,10 @@ export function SpiPanel(props: { spi?: SpiSnapshot }) {
                       <td className={cn("py-2 tabular-nums", spiTone(p.spi_value))}>
                         {p.spi_value != null ? p.spi_value.toFixed(2) : "—"}
                       </td>
-                      <td className="py-2">{p.spi_class_es ?? "—"}</td>
+                      <td className="py-2">{classLabel(p.spi_class_es)}</td>
+                      <td className="py-2 tabular-nums">
+                        {p.precip_window_mm != null ? `${p.precip_window_mm} mm` : "—"}
+                      </td>
                       <td className="py-2 tabular-nums">{p.window_months ?? "—"} m</td>
                     </tr>
                   ))}
@@ -70,8 +80,8 @@ export function SpiPanel(props: { spi?: SpiSnapshot }) {
             </div>
           ) : (
             <p className="text-sm text-muted dark:text-muted-dark">
-              SPI aún no materializado. Tras aplicar el parche:{" "}
-              <code className="text-xs">dbt run --select fact_spi_provisional</code>
+              SPI aún no materializado. Ejecuta{" "}
+              <code className="text-xs">dbt run --select fact_spi_provisional</code>.
             </p>
           )}
         </CardContent>

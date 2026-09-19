@@ -122,6 +122,19 @@ stats as (
     group by 1
 ),
 
+-- With only one rolling window per province, within-province sigma is 0 and SPI
+-- collapses to 0. Fall back to cross-province z-score for the same month.
+cross_month as (
+    select
+        month_start,
+        avg(precip_window_mm)::float as mu_x,
+        stddev_samp(precip_window_mm)::float as sigma_x,
+        count(*)::int as n_x
+    from eligible
+    where precip_window_mm is not null
+    group by 1
+),
+
 scored as (
     select
         e.province_name,
@@ -141,18 +154,25 @@ scored as (
         s.n_windows as calib_n_windows,
         case
             when e.precip_window_mm is null then null
-            when s.sigma is null or s.sigma = 0 then 0.0
-            else ((e.precip_window_mm - s.mu) / s.sigma)::float
+            when s.sigma is not null and s.sigma > 0
+                then ((e.precip_window_mm - s.mu) / s.sigma)::float
+            when x.sigma_x is not null and x.sigma_x > 0
+                then ((e.precip_window_mm - x.mu_x) / x.sigma_x)::float
+            else null
         end as spi_value,
         true as is_provisional,
         case
             when e.calibration_months >= 24 and e.window_months = 12 then 'spi12_short_calib'
             when e.window_months = 12 then 'spi12_provisional'
-            else 'spi_best_window'
+            when s.sigma is not null and s.sigma > 0 then 'spi_best_window'
+            when x.sigma_x is not null and x.sigma_x > 0 then 'spi_cross_province'
+            else 'spi_insufficient'
         end as method_tag
     from eligible as e
     left join stats as s
         on e.province_name = s.province_name
+    left join cross_month as x
+        on e.month_start = x.month_start
 ),
 
 classified as (
