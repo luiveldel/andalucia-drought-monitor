@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -73,22 +74,50 @@ def _api_token() -> str:
     return token
 
 
-def _get_json(path: str, params: dict[str, Any]) -> dict[str, Any]:
+def _get_json(
+    path: str,
+    params: dict[str, Any],
+    *,
+    max_attempts: int = 6,
+    base_sleep_sec: float = 65.0,
+) -> dict[str, Any]:
+    """GET JSON from SiAR with backoff on per-minute data quotas (HTTP 403)."""
     query = {**params, "token": _api_token()}
     url = f"{SIAR_API_BASE}{path}"
-    response = requests.get(
-        url, params=query, headers=DEFAULT_HEADERS, timeout=REQUEST_TIMEOUT
-    )
-    if response.status_code == 403:
-        raise RuntimeError(
-            "SiAR API 403 (límite de accesos o token inválido). "
-            f"Mensaje: {response.text[:300]}"
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        response = requests.get(
+            url, params=query, headers=DEFAULT_HEADERS, timeout=REQUEST_TIMEOUT
         )
-    response.raise_for_status()
-    payload = response.json()
-    if not isinstance(payload, dict):
-        raise ValueError(f"Respuesta inesperada de SiAR {path}: {type(payload)}")
-    return payload
+        if response.status_code == 403 and (
+            "máximo de datos" in response.text
+            or "maximo de datos" in response.text.lower()
+            or "rebasaría" in response.text
+            or "rebasaria" in response.text.lower()
+        ):
+            sleep_for = base_sleep_sec * attempt
+            logger.warning(
+                "SiAR cuota por minuto (intento %s/%s); espero %.0fs",
+                attempt,
+                max_attempts,
+                sleep_for,
+            )
+            time.sleep(sleep_for)
+            last_exc = RuntimeError(response.text[:300])
+            continue
+        if response.status_code == 403:
+            raise RuntimeError(
+                "SiAR API 403 (token inválido o sin permiso). "
+                f"Mensaje: {response.text[:300]}"
+            )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError(f"Respuesta inesperada de SiAR {path}: {type(payload)}")
+        return payload
+    raise RuntimeError(
+        f"SiAR API: agotados reintentos por cuota en {path}: {last_exc}"
+    )
 
 
 def _rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -329,7 +358,7 @@ def run(
     partition_date: str,
     ccaa: str = DEFAULT_CCAA,
     *,
-    with_station_meta: bool = False,
+    with_station_meta: bool = True,
 ) -> int:
     raw = fetch_data(
         partition_date, ccaa=ccaa, with_station_meta=with_station_meta
@@ -344,12 +373,16 @@ def main() -> None:
     parser.add_argument("--ds", required=True, help="Fecha de partición YYYY-MM-DD")
     parser.add_argument("--ccaa", default=DEFAULT_CCAA, help="Código CCAA SiAR (AND)")
     parser.add_argument(
-        "--with-station-meta",
+        "--no-station-meta",
         action="store_true",
-        help="También llama a /Info/ESTACIONES (consume cuota por minuto)",
+        help="No llama a /Info/ESTACIONES (más rápido; solo prefijo de código)",
     )
     args = parser.parse_args()
-    run(args.ds, ccaa=args.ccaa, with_station_meta=args.with_station_meta)
+    run(
+        args.ds,
+        ccaa=args.ccaa,
+        with_station_meta=not args.no_station_meta,
+    )
 
 
 if __name__ == "__main__":
