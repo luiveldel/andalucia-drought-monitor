@@ -15,6 +15,7 @@ from app.irrigation_autonomy import (
     DEFAULT_KC,
     IRRIGATED_HA_2023,
     KC_BY_PROVINCE,
+    THRESHOLDS,
     _daily_demand_hm3,
     _f,
     _risk_level,
@@ -25,7 +26,7 @@ from app.meteo_forecast import OM_LAT as _OM_LAT, OM_LON as _OM_LON
 _cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 30 * 60
 
-CRITICAL_AUTONOMY_DAYS = 30.0
+CRITICAL_AUTONOMY_DAYS = float(THRESHOLDS["autonomy_critical"])
 
 
 def _days_until_critical(
@@ -33,28 +34,34 @@ def _days_until_critical(
     series: list[dict[str, Any]],
     threshold: float = CRITICAL_AUTONOMY_DAYS,
 ) -> int | None:
-    """Calendar days until projected autonomy falls below threshold (0 = already)."""
+    """Calendar days until projected autonomy falls below threshold (0 = already).
+
+    Extrapolates past the forecast horizon only when +horizon autonomy is already
+    in the warning band (avoids false alarms from short steep drops on high stock).
+    """
     if days_autonomy_start is not None and float(days_autonomy_start) < threshold:
         return 0
     for i, day in enumerate(series):
         da = day.get("days_autonomy")
         if da is not None and float(da) < threshold:
             return i + 1  # after that many forecast days
-    # not hit within horizon — estimate with last step if declining
+    # beyond horizon: only if end-of-horizon is already in warning band
+    warn_band = float(THRESHOLDS.get("autonomy_warning", 60.0))
     if len(series) >= 2 and days_autonomy_start is not None:
         start = float(days_autonomy_start)
         end = series[-1].get("days_autonomy")
         if end is not None:
             end_f = float(end)
+            if end_f >= warn_band:
+                return None  # still comfortable at +horizon
             drop = start - end_f
             if drop > 0.5:
-                # linear extrapolate beyond horizon
                 per_day = drop / len(series)
                 remain = start - threshold
                 if per_day > 1e-9:
                     est = int(remain / per_day + 0.999)
                     return max(len(series) + 1, est) if start >= threshold else 0
-    return None  # unknown / not approaching
+    return None
 
 
 

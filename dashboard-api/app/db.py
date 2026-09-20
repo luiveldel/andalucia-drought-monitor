@@ -179,7 +179,18 @@ def _build_recommendations(
                 "detail": f"{names}: analizar extracciones y pérdidas; contrastar con aportaciones.",
             }
         )
-    # Irrigation cut-risk from autonomy projection
+    # Irrigation cut-risk from autonomy projection (shared THRESHOLDS)
+    try:
+        from app.irrigation_autonomy import THRESHOLDS as _IR_TH
+    except Exception:  # noqa: BLE001
+        _IR_TH = {
+            "until_critical_high": 7,
+            "until_critical_medium": 21,
+            "autonomy_critical": 21.0,
+        }
+    until_high = int(_IR_TH.get("until_critical_high", 7))
+    until_med = int(_IR_TH.get("until_critical_medium", 21))
+    crit_band = float(_IR_TH.get("autonomy_critical", 21))
     ia = irrigation_autonomy or {}
     proj = ia.get("projection") or {}
     cut_near: list[tuple[str, int]] = []
@@ -193,19 +204,21 @@ def _build_recommendations(
             until_i = int(until)
         except (TypeError, ValueError):
             continue
-        if until_i <= 14:
+        if until_i <= until_med:
             cut_near.append((str(row.get("province_name") or "?"), until_i))
     if cut_near:
         cut_near.sort(key=lambda x: x[1])
-        bits = ", ".join(f"{n} ({d}d)" if d > 0 else f"{n} (ya crítico)" for n, d in cut_near[:4])
+        bits = ", ".join(
+            f"{n} ({d}d)" if d > 0 else f"{n} (ya crítico)" for n, d in cut_near[:4]
+        )
         worst = cut_near[0][1]
         recs.insert(
             0,
             {
-                "priority": "high" if worst <= 7 else "medium",
+                "priority": "high" if worst <= until_high else "medium",
                 "title": "Riesgo de corte de riego (autonomía)",
                 "detail": (
-                    f"Provincias con ≤14 días hasta autonomía <30 d: {bits}. "
+                    f"Provincias con ≤{until_med} d hasta autonomía <{crit_band:.0f} d: {bits}. "
                     "Revisar turnos, prioridad de cultivos y embalses de riego."
                 ),
             },

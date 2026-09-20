@@ -395,7 +395,21 @@ export interface IrrigationAutonomyProvince {
   trend_direction?: "worsening" | "improving" | "stable" | "unknown";
 }
 
+
+export interface IrrigationThresholds {
+  autonomy_critical_days?: number;
+  autonomy_warning_days?: number;
+  autonomy_watch_days?: number;
+  drop_fast_7d?: number;
+  drop_watch_7d?: number;
+  burn_warning_ratio?: number;
+  burn_critical_ratio?: number;
+  until_critical_high_days?: number;
+  until_critical_medium_days?: number;
+}
+
 export interface IrrigationAutonomySnapshot {
+  thresholds?: IrrigationThresholds;
   available: boolean;
   as_of_reservoir?: string | null;
   as_of_siar?: string | null;

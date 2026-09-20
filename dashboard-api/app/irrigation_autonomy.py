@@ -43,6 +43,25 @@ KC_BY_PROVINCE: dict[str, float] = {
 
 DEFAULT_KC = 0.75
 
+# Operational autonomy bands (days of usable storage ÷ SiAR×Kc demand).
+# Tuned for late-summer / early-autumn irrigation cut risk in Andalucía.
+THRESHOLDS = {
+    # stock: days of autonomy today
+    "autonomy_critical": 21.0,   # < ~3 weeks → cut risk high
+    "autonomy_warning": 60.0,    # < ~2 months → plan restrictions
+    "autonomy_watch": 90.0,      # < ~3 months → early attention
+    # trend: Δ autonomía over ~7 calendar days (negative = worsening)
+    "drop_fast_7d": -10.0,       # rapid deterioration
+    "drop_watch_7d": -5.0,       # early deterioration signal
+    # burn: observed storage loss vs theoretical SiAR demand
+    "burn_warning_ratio": 1.25,
+    "burn_critical_ratio": 2.0,
+    # projection: calendar days until autonomy hits critical band
+    "until_critical_high": 7,    # ≤7 d → high priority recommendation
+    "until_critical_medium": 21, # ≤21 d → medium priority
+}
+
+
 # Sistemas de explotación claramente urbanos en el catálogo REDIAM.
 URBAN_SUPPLY_SYSTEMS = {
     "ABASTECIMIENTO DE SEVILLA",
@@ -111,6 +130,7 @@ def _empty() -> dict[str, Any]:
         "by_province": [],
         "alerts": [],
         "projection": {"available": False, "horizon_days": 7, "source": "", "attribution": "", "note": "", "regional": None, "by_province": []},
+        "thresholds": thresholds_public(),
         "ria_siar_compare": {"available": False, "as_of": None, "note": "", "regional": None, "by_province": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
@@ -125,13 +145,28 @@ def _empty() -> dict[str, Any]:
 def _risk_level(days: float | None) -> str:
     if days is None:
         return "unknown"
-    if days < 30:
+    if days < THRESHOLDS["autonomy_critical"]:
         return "critical"
-    if days < 60:
+    if days < THRESHOLDS["autonomy_warning"]:
         return "warning"
-    if days < 120:
+    if days < THRESHOLDS["autonomy_watch"]:
         return "watch"
     return "ok"
+
+
+def thresholds_public() -> dict[str, float | int]:
+    """Expose band labels for UI footnotes."""
+    return {
+        "autonomy_critical_days": THRESHOLDS["autonomy_critical"],
+        "autonomy_warning_days": THRESHOLDS["autonomy_warning"],
+        "autonomy_watch_days": THRESHOLDS["autonomy_watch"],
+        "drop_fast_7d": THRESHOLDS["drop_fast_7d"],
+        "drop_watch_7d": THRESHOLDS["drop_watch_7d"],
+        "burn_warning_ratio": THRESHOLDS["burn_warning_ratio"],
+        "burn_critical_ratio": THRESHOLDS["burn_critical_ratio"],
+        "until_critical_high_days": THRESHOLDS["until_critical_high"],
+        "until_critical_medium_days": THRESHOLDS["until_critical_medium"],
+    }
 
 
 def _pack_province(
@@ -380,6 +415,13 @@ def _trend_delta(trend: list[dict[str, Any]], lookback: int = 7) -> float | None
 def _build_early_alerts(by_province: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Early-warning signals for irrigation cut risk (piloto)."""
     alerts: list[dict[str, Any]] = []
+    crit_band = THRESHOLDS["autonomy_critical"]
+    warn_band = THRESHOLDS["autonomy_warning"]
+    drop_fast = THRESHOLDS["drop_fast_7d"]
+    drop_watch = THRESHOLDS["drop_watch_7d"]
+    burn_w = THRESHOLDS["burn_warning_ratio"]
+    burn_c = THRESHOLDS["burn_critical_ratio"]
+
     for p in by_province:
         name = p["province_name"]
         days = p.get("days_autonomy")
@@ -402,7 +444,7 @@ def _build_early_alerts(by_province: list[dict[str, Any]]) -> list[dict[str, Any
                     "severity": "critical",
                     "province_name": name,
                     "message_es": (
-                        f"{name}: autonomía crítica (~{days:.0f} d). "
+                        f"{name}: autonomía crítica (~{days:.0f} d, umbral <{crit_band:.0f} d). "
                         "Riesgo alto de restricciones de riego si no llueve o baja la demanda."
                     ),
                 }
@@ -414,47 +456,59 @@ def _build_early_alerts(by_province: list[dict[str, Any]]) -> list[dict[str, Any
                     "severity": "warning",
                     "province_name": name,
                     "message_es": (
-                        f"{name}: autonomía en alerta (~{days:.0f} d). "
-                        "Vigilar dotaciones y evolución del embalse."
+                        f"{name}: autonomía en alerta (~{days:.0f} d, umbral <{warn_band:.0f} d). "
+                        "Planificar dotaciones y revisar embalses de riego."
+                    ),
+                }
+            )
+        elif level == "watch":
+            alerts.append(
+                {
+                    "code": "autonomy_watch",
+                    "severity": "watch",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: autonomía en vigilancia (~{days:.0f} d). "
+                        "Seguimiento semanal de demanda SiAR y vaciado."
                     ),
                 }
             )
 
-        if delta is not None and delta <= -14:
+        if delta is not None and delta <= drop_fast:
             alerts.append(
                 {
                     "code": "autonomy_drop_fast",
                     "severity": "warning" if level != "critical" else "critical",
                     "province_name": name,
                     "message_es": (
-                        f"{name}: la autonomía ha caído ~{abs(delta):.0f} días en la última semana. "
-                        "Tendencia de vaciado acelerado."
+                        f"{name}: la autonomía ha caído ~{abs(delta):.0f} días en la última semana "
+                        f"(umbral rápido ≤{abs(drop_fast):.0f} d). Tendencia de vaciado acelerado."
                     ),
                 }
             )
-        elif delta is not None and delta <= -7 and level in ("watch", "ok", "warning"):
+        elif delta is not None and delta <= drop_watch and level in ("watch", "ok", "warning"):
             alerts.append(
                 {
                     "code": "autonomy_drop",
                     "severity": "watch",
                     "province_name": name,
                     "message_es": (
-                        f"{name}: autonomía −{abs(delta):.0f} d en ~7 días. "
-                        "Señal temprana de deterioro."
+                        f"{name}: autonomía −{abs(delta):.0f} d en ~7 días "
+                        f"(umbral ≤{abs(drop_watch):.0f} d). Señal temprana de deterioro."
                     ),
                 }
             )
 
-        if ratio is not None and ratio >= 1.25:
+        if ratio is not None and ratio >= burn_w:
             alerts.append(
                 {
                     "code": "burn_above_demand",
-                    "severity": "warning" if ratio < 2 else "critical",
+                    "severity": "warning" if ratio < burn_c else "critical",
                     "province_name": name,
                     "message_es": (
                         f"{name}: el vaciado real del embalse "
-                        f"({ratio:.1f}× la demanda SiAR teórica) supera el consumo estimado. "
-                        "Puede haber usos no capturados o trasvases."
+                        f"({ratio:.1f}× la demanda SiAR teórica) supera el consumo estimado "
+                        f"(alerta ≥{burn_w:.2f}×). Puede haber usos no capturados o trasvases."
                     ),
                 }
             )
@@ -735,6 +789,59 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 float(start) if start is not None else None,
                 projection["regional"].get("days") or [],
             )
+        # Projection-based until-critical alerts
+        until_high = int(THRESHOLDS["until_critical_high"])
+        until_med = int(THRESHOLDS["until_critical_medium"])
+        crit_band = THRESHOLDS["autonomy_critical"]
+        for row in (projection or {}).get("by_province") or []:
+            if not row.get("available"):
+                continue
+            until = row.get("days_until_critical")
+            if until is None:
+                continue
+            try:
+                until_i = int(until)
+            except (TypeError, ValueError):
+                continue
+            name = row.get("province_name") or "?"
+            if until_i == 0:
+                # already covered by autonomy_critical stock alert usually
+                continue
+            if until_i <= until_high:
+                alerts.append(
+                    {
+                        "code": "until_critical_near",
+                        "severity": "critical",
+                        "province_name": name,
+                        "message_es": (
+                            f"{name}: ~{until_i} d de calendario hasta autonomía <{crit_band:.0f} d "
+                            "(proyección Open-Meteo). Priorizar mesa de riego."
+                        ),
+                    }
+                )
+            elif until_i <= until_med:
+                alerts.append(
+                    {
+                        "code": "until_critical_medium",
+                        "severity": "warning",
+                        "province_name": name,
+                        "message_es": (
+                            f"{name}: ~{until_i} d de calendario hasta autonomía <{crit_band:.0f} d "
+                            "(proyección). Revisar turnos y prioridad de cultivos."
+                        ),
+                    }
+                )
+        # re-dedupe after projection alerts
+        sev = {"critical": 0, "warning": 1, "watch": 2}
+        seen: set[tuple[str, str]] = set()
+        deduped: list[dict[str, Any]] = []
+        for a in sorted(alerts, key=lambda x: (sev.get(x["severity"], 9), x["province_name"])):
+            key = (a["code"], a["province_name"])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(a)
+        alerts = deduped
         compare = build_ria_siar_compare(conn, as_of=as_of_siar)
 
         return {
@@ -755,6 +862,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "regional": regional,
             "by_province": by_province,
             "alerts": alerts,
+            "thresholds": thresholds_public(),
             "projection": projection,
             "ria_siar_compare": compare,
         }

@@ -41,7 +41,11 @@ export function IrrigationAlertsPanel(props: {
     <section>
       <SectionHeader
         title="Alertas tempranas de riego"
-        description="Umbrales de autonomía, caída semanal y vaciado vs demanda SiAR (piloto)."
+        description={
+          props.autonomy.thresholds?.autonomy_critical_days != null
+            ? `Crítico <${props.autonomy.thresholds.autonomy_critical_days} d · alerta <${props.autonomy.thresholds.autonomy_warning_days} d · vigilancia <${props.autonomy.thresholds.autonomy_watch_days} d · caída rápida ≤${Math.abs(Number(props.autonomy.thresholds.drop_fast_7d))} d/7d.`
+            : "Umbrales de autonomía, caída semanal y vaciado vs demanda SiAR (piloto)."
+        }
       />
       <Card className="mt-3 border-rose-600/15 dark:border-rose-400/20">
         <CardContent className="space-y-2 pt-4">

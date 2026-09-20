@@ -311,6 +311,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       regional: null,
       by_province: [],
       alerts: [],
+      thresholds: {},
       projection: { available: false, horizon_days: 7, source: "", attribution: "", note: "", regional: null, by_province: [] },
       ria_siar_compare: { available: false, as_of: null, note: "", regional: null, by_province: [] },
     },

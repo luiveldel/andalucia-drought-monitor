@@ -81,7 +81,7 @@ export function IrrigationProjectionPanel(props: {
                         : "—"}
                   </p>
                   <p className="text-[11px] text-muted dark:text-muted-dark">
-                    umbral &lt; {row.critical_threshold_days ?? 30} d autonomía
+                    umbral &lt; {row.critical_threshold_days ?? props.autonomy.thresholds?.autonomy_critical_days ?? 21} d autonomía
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/80 p-3">

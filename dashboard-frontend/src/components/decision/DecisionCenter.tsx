@@ -65,9 +65,10 @@ export function DecisionCenter(props: {
   const cutRows = cutRiskRows(props.irrigationAutonomy);
   const regionalUntil = props.irrigationAutonomy?.projection?.regional?.days_until_critical;
   const threshold =
+    props.irrigationAutonomy?.thresholds?.autonomy_critical_days ??
     props.irrigationAutonomy?.projection?.regional?.critical_threshold_days ??
     cutRows[0]?.critical_threshold_days ??
-    30;
+    21;
 
   return (
     <section className="space-y-4">
@@ -115,6 +116,9 @@ export function DecisionCenter(props: {
               </p>
               <p className="mt-1 text-xs text-muted dark:text-muted-dark">
                 Calendario hasta autonomía proyectada &lt; {threshold} d (embalse usable ÷ demanda SiAR×Kc).
+                Bandas stock: crítico &lt;{props.irrigationAutonomy?.thresholds?.autonomy_critical_days ?? 21} d ·
+                alerta &lt;{props.irrigationAutonomy?.thresholds?.autonomy_warning_days ?? 60} d ·
+                vigilancia &lt;{props.irrigationAutonomy?.thresholds?.autonomy_watch_days ?? 90} d.
               </p>
             </div>
             <div className="text-right">
