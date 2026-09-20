@@ -168,9 +168,17 @@ export function IrrigationAutonomyPanel(props: {
                   label="Días de autonomía"
                   value={fmt(row.days_autonomy, " d", 0)}
                   hint={
-                    row.days_autonomy_gross != null
-                      ? `Bruto ${fmt(row.days_autonomy_gross, " d", 0)} · ${fmt(row.weeks_autonomy, " sem", 1)}`
-                      : fmt(row.weeks_autonomy, " semanas", 1)
+                    [
+                      row.days_autonomy_delta_7d != null
+                        ? `Δ7d ${row.days_autonomy_delta_7d > 0 ? "+" : ""}${fmt(row.days_autonomy_delta_7d, " d", 0)}`
+                        : null,
+                      row.days_autonomy_gross != null
+                        ? `Bruto ${fmt(row.days_autonomy_gross, " d", 0)}`
+                        : null,
+                      fmt(row.weeks_autonomy, " sem", 1),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                   }
                   tone={levelClass(row.risk_level)}
                 />

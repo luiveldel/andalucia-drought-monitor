@@ -294,6 +294,14 @@ export interface IrrigationAutonomyTrendPoint {
   daily_demand_hm3: number | null;
 }
 
+
+export interface IrrigationAutonomyAlert {
+  code: string;
+  severity: "critical" | "warning" | "watch";
+  province_name: string;
+  message_es: string;
+}
+
 export interface IrrigationAutonomyProvince {
   province_name: string;
   stored_hm3: number | null;
@@ -318,6 +326,8 @@ export interface IrrigationAutonomyProvince {
   storage_burn_hm3_per_day?: number | null;
   burn_vs_demand_ratio?: number | null;
   autonomy_trend?: IrrigationAutonomyTrendPoint[];
+  days_autonomy_delta_7d?: number | null;
+  trend_direction?: "worsening" | "improving" | "stable" | "unknown";
 }
 
 export interface IrrigationAutonomySnapshot {
@@ -331,6 +341,7 @@ export interface IrrigationAutonomySnapshot {
   note?: string;
   regional?: IrrigationAutonomyProvince | null;
   by_province?: IrrigationAutonomyProvince[];
+  alerts?: IrrigationAutonomyAlert[];
 }
 
 export interface MeteoSiarSnapshot {

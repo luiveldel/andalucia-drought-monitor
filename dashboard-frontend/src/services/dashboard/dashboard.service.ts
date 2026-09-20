@@ -310,6 +310,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       note: "",
       regional: null,
       by_province: [],
+      alerts: [],
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {

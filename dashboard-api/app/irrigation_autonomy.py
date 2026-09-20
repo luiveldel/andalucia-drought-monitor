@@ -109,6 +109,7 @@ def _empty() -> dict[str, Any]:
         "note": "",
         "regional": None,
         "by_province": [],
+        "alerts": [],
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -349,6 +350,126 @@ def _autonomy_trend(
     return points
 
 
+
+def _trend_delta(trend: list[dict[str, Any]], lookback: int = 7) -> float | None:
+    """Days-autonomy now minus ~lookback days ago (negative = worsening)."""
+    pts = [x for x in (trend or []) if x.get("days_autonomy") is not None]
+    if len(pts) < 2:
+        return None
+    newest = float(pts[-1]["days_autonomy"])
+    # find point at least lookback calendar days before newest date if possible
+    target = pts[0]
+    try:
+        from datetime import date as _date
+
+        end = _date.fromisoformat(str(pts[-1]["date"])[:10])
+        for x in reversed(pts[:-1]):
+            d0 = _date.fromisoformat(str(x["date"])[:10])
+            if (end - d0).days >= lookback:
+                target = x
+                break
+        else:
+            target = pts[0]
+    except Exception:  # noqa: BLE001
+        target = pts[0]
+    return newest - float(target["days_autonomy"])
+
+
+def _build_early_alerts(by_province: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Early-warning signals for irrigation cut risk (piloto)."""
+    alerts: list[dict[str, Any]] = []
+    for p in by_province:
+        name = p["province_name"]
+        days = p.get("days_autonomy")
+        level = p.get("risk_level") or "unknown"
+        ratio = p.get("burn_vs_demand_ratio")
+        trend = p.get("autonomy_trend") or []
+        delta = _trend_delta(trend, 7)
+        p["days_autonomy_delta_7d"] = _f(delta, 1) if delta is not None else None
+        if delta is not None and delta < -0.5:
+            p["trend_direction"] = "worsening"
+        elif delta is not None and delta > 0.5:
+            p["trend_direction"] = "improving"
+        else:
+            p["trend_direction"] = "stable" if delta is not None else "unknown"
+
+        if level == "critical":
+            alerts.append(
+                {
+                    "code": "autonomy_critical",
+                    "severity": "critical",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: autonomía crítica (~{days:.0f} d). "
+                        "Riesgo alto de restricciones de riego si no llueve o baja la demanda."
+                    ),
+                }
+            )
+        elif level == "warning":
+            alerts.append(
+                {
+                    "code": "autonomy_warning",
+                    "severity": "warning",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: autonomía en alerta (~{days:.0f} d). "
+                        "Vigilar dotaciones y evolución del embalse."
+                    ),
+                }
+            )
+
+        if delta is not None and delta <= -14:
+            alerts.append(
+                {
+                    "code": "autonomy_drop_fast",
+                    "severity": "warning" if level != "critical" else "critical",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: la autonomía ha caído ~{abs(delta):.0f} días en la última semana. "
+                        "Tendencia de vaciado acelerado."
+                    ),
+                }
+            )
+        elif delta is not None and delta <= -7 and level in ("watch", "ok", "warning"):
+            alerts.append(
+                {
+                    "code": "autonomy_drop",
+                    "severity": "watch",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: autonomía −{abs(delta):.0f} d en ~7 días. "
+                        "Señal temprana de deterioro."
+                    ),
+                }
+            )
+
+        if ratio is not None and ratio >= 1.25:
+            alerts.append(
+                {
+                    "code": "burn_above_demand",
+                    "severity": "warning" if ratio < 2 else "critical",
+                    "province_name": name,
+                    "message_es": (
+                        f"{name}: el vaciado real del embalse "
+                        f"({ratio:.1f}× la demanda SiAR teórica) supera el consumo estimado. "
+                        "Puede haber usos no capturados o trasvases."
+                    ),
+                }
+            )
+
+    # Deduplicate by (code, province), keep highest severity order
+    sev = {"critical": 0, "warning": 1, "watch": 2}
+    seen: set[tuple[str, str]] = set()
+    uniq: list[dict[str, Any]] = []
+    for a in sorted(alerts, key=lambda x: (sev.get(x["severity"], 9), x["province_name"])):
+        key = (a["code"], a["province_name"])
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(a)
+    return uniq
+
+
 def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
     empty = _empty()
     try:
@@ -587,6 +708,18 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         else:
             regional = None
 
+        alerts = _build_early_alerts(by_province)
+        # enrich regional with delta too
+        if regional is not None:
+            rd = _trend_delta(regional.get("autonomy_trend") or [], 7)
+            regional["days_autonomy_delta_7d"] = _f(rd, 1) if rd is not None else None
+            if rd is not None and rd < -0.5:
+                regional["trend_direction"] = "worsening"
+            elif rd is not None and rd > 0.5:
+                regional["trend_direction"] = "improving"
+            else:
+                regional["trend_direction"] = "stable" if rd is not None else "unknown"
+
         return {
             "available": bool(by_province),
             "as_of_reservoir": as_of_res,
@@ -598,11 +731,12 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "note": (
                 "Piloto afinado. Ha Junta 2023; Kc por cultivo dominante; "
                 "excluídos sistemas urbanos explícitos (ABASTECIMIENTO Sevilla/Jaén). "
-                "Déficit 7d/30d y burn rate usan historial SiAR/embalses disponible. "
+                "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
             "by_province": by_province,
+            "alerts": alerts,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

@@ -63,7 +63,7 @@ def _empty_payload() -> dict[str, Any]:
         "exploitation_systems": {"available": False, "as_of": None, "systems": []},
         "meteo_observed": {"available": False, "as_of": None, "grain": "daily", "note": "", "regional": None, "by_province": [], "trend_days": [], "trend_by_province": {}, "alerts": []},
         "meteo_siar": {"available": False, "as_of": None, "grain": "daily", "source": "SiAR", "attribution": "https://servicio.mapa.gob.es/siarweb/", "note": "", "station_count": 0, "regional": None, "by_province": [], "trend_days": []},
-        "irrigation_autonomy": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "kc": None, "irrigated_ha_source": "", "storage_scope": "", "note": "", "method_es": "", "regional": None, "by_province": []},
+        "irrigation_autonomy": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "kc": None, "irrigated_ha_source": "", "storage_scope": "", "note": "", "method_es": "", "regional": None, "by_province": [], "alerts": []},
         "meteo_forecast": {"available": False, "source": "Open-Meteo", "attribution": "https://open-meteo.com", "location_label": "Andalucía (centroide)", "latitude": 37.39, "longitude": -5.99, "generated_at": None, "error": None, "current": None, "hourly_today": [], "daily": [], "alerts": []},
         "stress_evolution": [],
         "climate_by_province": {},
