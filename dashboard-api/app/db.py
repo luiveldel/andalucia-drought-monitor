@@ -806,6 +806,31 @@ def load_dashboard_data() -> dict[str, Any]:
             1 for p in province_rows if _severity_from_fill(float(p.get("avg_fill_pct") or 0)) in ("emergency", "critical")
         )
         effective_alerts = max(int(alert_count), prov_alert_n)
+        
+        # Attach irrigation autonomy traffic-light to risk board rows
+        _irr_by = {
+            str(r.get("province_name") or ""): r
+            for r in (irrigation_autonomy or {}).get("by_province") or []
+        }
+        _proj_by = {
+            str(r.get("province_name") or ""): r
+            for r in ((irrigation_autonomy or {}).get("projection") or {}).get("by_province") or []
+        }
+        def _norm_p(s: str) -> str:
+            import unicodedata
+            s = unicodedata.normalize("NFD", s)
+            s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+            return s.lower().strip()
+        _irr_norm = {_norm_p(k): v for k, v in _irr_by.items()}
+        _proj_norm = {_norm_p(k): v for k, v in _proj_by.items()}
+        for r in risk_board:
+            key = _norm_p(str(r.get("province") or ""))
+            ir = _irr_norm.get(key) or {}
+            pr = _proj_norm.get(key) or {}
+            r["irrigation_days_autonomy"] = ir.get("days_autonomy")
+            r["irrigation_risk_level"] = ir.get("risk_level") or "unknown"
+            r["days_until_critical"] = pr.get("days_until_critical")
+
         recommendations = _build_recommendations(alerts, risk_board, irrigation_autonomy)
         narrative = _weekly_narrative(weekly_deltas, avg_fill, effective_alerts)
 

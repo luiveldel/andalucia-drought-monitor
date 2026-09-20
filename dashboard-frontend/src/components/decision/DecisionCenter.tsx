@@ -46,6 +46,60 @@ function untilTone(v: number | null | undefined): string {
   return "text-sev-normal";
 }
 
+
+function irrChipClass(level: string | undefined): string {
+  switch (level) {
+    case "critical":
+      return "bg-rose-500/15 text-rose-800 dark:text-rose-200";
+    case "warning":
+      return "bg-amber-500/15 text-amber-900 dark:text-amber-100";
+    case "watch":
+      return "bg-sky-500/15 text-sky-900 dark:text-sky-100";
+    case "ok":
+      return "bg-emerald-500/15 text-emerald-900 dark:text-emerald-100";
+    default:
+      return "bg-muted/40 text-muted dark:text-muted-dark";
+  }
+}
+
+function irrChipLabel(level: string | undefined): string {
+  switch (level) {
+    case "critical":
+      return "Crítico";
+    case "warning":
+      return "Alerta";
+    case "watch":
+      return "Vigilancia";
+    case "ok":
+      return "Holgado";
+    default:
+      return "—";
+  }
+}
+
+function irrRank(level: string | undefined): number {
+  switch (level) {
+    case "critical":
+      return 0;
+    case "warning":
+      return 1;
+    case "watch":
+      return 2;
+    case "ok":
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+function normProv(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
 function cutRiskRows(autonomy: IrrigationAutonomySnapshot | undefined): IrrigationProjectionProvince[] {
   const rows = autonomy?.projection?.by_province ?? [];
   return [...rows]
@@ -61,7 +115,47 @@ export function DecisionCenter(props: {
   riskBoard: RiskBoardRow[];
   irrigationAutonomy?: IrrigationAutonomySnapshot;
 }) {
-  const topRisk = [...props.riskBoard].sort((a, b) => b.risk_score - a.risk_score);
+  const irrFallback = (() => {
+    const m = new Map<
+      string,
+      { days: number | null; risk: string; until: number | null }
+    >();
+    const ia = props.irrigationAutonomy;
+    const proj = new Map<string, number | null>();
+    for (const row of ia?.projection?.by_province ?? []) {
+      proj.set(normProv(row.province_name), row.days_until_critical ?? null);
+    }
+    for (const row of ia?.by_province ?? []) {
+      m.set(normProv(row.province_name), {
+        days: row.days_autonomy ?? null,
+        risk: String(row.risk_level ?? "unknown"),
+        until: proj.get(normProv(row.province_name)) ?? null,
+      });
+    }
+    return m;
+  })();
+
+  const topRisk = [...props.riskBoard]
+    .map((r) => {
+      if (r.irrigation_risk_level && r.irrigation_risk_level !== "unknown") return r;
+      const hit = irrFallback.get(normProv(r.province));
+      if (!hit) return r;
+      return {
+        ...r,
+        irrigation_days_autonomy: r.irrigation_days_autonomy ?? hit.days,
+        irrigation_risk_level: r.irrigation_risk_level ?? hit.risk,
+        days_until_critical: r.days_until_critical ?? hit.until,
+      };
+    })
+    .sort((a, b) => {
+      const ia = irrRank(a.irrigation_risk_level);
+      const ib = irrRank(b.irrigation_risk_level);
+      if (ia !== ib) return ia - ib;
+      const ua = a.days_until_critical ?? 9999;
+      const ub = b.days_until_critical ?? 9999;
+      if (ua !== ub) return ua - ub;
+      return b.risk_score - a.risk_score;
+    });
   const cutRows = cutRiskRows(props.irrigationAutonomy);
   const regionalUntil = props.irrigationAutonomy?.projection?.regional?.days_until_critical;
   const threshold =
@@ -196,13 +290,21 @@ export function DecisionCenter(props: {
 
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm font-medium text-muted dark:text-muted-dark">Ranking de riesgo provincial</p>
+            <p className="text-sm font-medium text-muted dark:text-muted-dark">
+              Ranking de riesgo provincial
+            </p>
+            <p className="mt-1 text-xs text-muted dark:text-muted-dark">
+              Ordenado por semáforo de riego, luego días hasta crítico y score de embalse.
+            </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[420px] text-left text-sm">
+              <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="text-xs uppercase text-muted dark:text-muted-dark">
                   <tr>
                     <th className="pb-2 font-medium">Provincia</th>
-                    <th className="pb-2 font-medium">Riesgo</th>
+                    <th className="pb-2 font-medium">Riego</th>
+                    <th className="pb-2 font-medium">Autonomía</th>
+                    <th className="pb-2 font-medium">Hasta crítico</th>
+                    <th className="pb-2 font-medium">Score</th>
                     <th className="pb-2 font-medium">Llenado</th>
                     <th className="pb-2 font-medium">Δ7d</th>
                   </tr>
@@ -211,6 +313,24 @@ export function DecisionCenter(props: {
                   {topRisk.map((r) => (
                     <tr key={r.province} className="border-t border-black/5 dark:border-white/5">
                       <td className="py-2 font-medium">{r.province}</td>
+                      <td className="py-2">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
+                            irrChipClass(r.irrigation_risk_level),
+                          )}
+                        >
+                          {irrChipLabel(r.irrigation_risk_level)}
+                        </span>
+                      </td>
+                      <td className="py-2 tabular-nums">
+                        {r.irrigation_days_autonomy != null
+                          ? `${Math.round(r.irrigation_days_autonomy)} d`
+                          : "—"}
+                      </td>
+                      <td className={cn("py-2 tabular-nums font-medium", untilTone(r.days_until_critical))}>
+                        {formatUntilCritical(r.days_until_critical)}
+                      </td>
                       <td className="py-2 tabular-nums">{r.risk_score}</td>
                       <td className="py-2 tabular-nums">{r.fill_pct}%</td>
                       <td

@@ -101,6 +101,9 @@ export interface RiskBoardRow {
   deficit_mm: number;
   severity: SeverityLevel;
   risk_score: number;
+  irrigation_days_autonomy?: number | null;
+  irrigation_risk_level?: "critical" | "warning" | "watch" | "ok" | "unknown" | string;
+  days_until_critical?: number | null;
 }
 
 export interface WeeklyDeltas {
