@@ -130,8 +130,6 @@ export function DashboardPage() {
             ) : (
               <>
                 <ObservedMeteoPanel meteo={data.meteoObserved} province={climateProvince} />
-                <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
-                <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
                 <ClimateIndicatorsRow
                   indicators={climateIndicators}
                   scopeLabel={climateProvince}
@@ -141,6 +139,20 @@ export function DashboardPage() {
                 <SpiPanel spi={data.spi} />
               </>
             )}
+          </div>
+        ) : null}
+
+        {tab === "irrigation" ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader
+                title={t("section.irrigation")}
+                description={t("section.irrigation.desc")}
+              />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
+            <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
 
