@@ -110,6 +110,8 @@ def _empty() -> dict[str, Any]:
         "regional": None,
         "by_province": [],
         "alerts": [],
+        "projection": {"available": False, "horizon_days": 7, "source": "", "attribution": "", "note": "", "regional": None, "by_province": []},
+        "ria_siar_compare": {"available": False, "as_of": None, "note": "", "regional": None, "by_province": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -720,6 +722,14 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             else:
                 regional["trend_direction"] = "stable" if rd is not None else "unknown"
 
+        # Lazy imports avoid circular dependency with irrigation_extras
+        from app.irrigation_extras import build_autonomy_projection, build_ria_siar_compare
+
+        projection = build_autonomy_projection(by_province, horizon_days=7)
+        if regional and projection.get("regional"):
+            projection["regional"]["days_autonomy_start"] = regional.get("days_autonomy")
+        compare = build_ria_siar_compare(conn, as_of=as_of_siar)
+
         return {
             "available": bool(by_province),
             "as_of_reservoir": as_of_res,
@@ -732,11 +742,14 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "Piloto afinado. Ha Junta 2023; Kc por cultivo dominante; "
                 "excluídos sistemas urbanos explícitos (ABASTECIMIENTO Sevilla/Jaén). "
                 "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
+                "Proyección 7d con Open-Meteo ET0; comparativa RIA vs SiAR del mismo día. "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
             "by_province": by_province,
             "alerts": alerts,
+            "projection": projection,
+            "ria_siar_compare": compare,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

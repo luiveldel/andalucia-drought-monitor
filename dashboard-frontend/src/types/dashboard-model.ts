@@ -295,6 +295,68 @@ export interface IrrigationAutonomyTrendPoint {
 }
 
 
+
+export interface IrrigationProjectionDay {
+  date: string;
+  et0_mm?: number | null;
+  precip_mm?: number | null;
+  daily_demand_hm3?: number | null;
+  stored_hm3?: number | null;
+  days_autonomy?: number | null;
+}
+
+export interface IrrigationProjectionProvince {
+  province_name: string;
+  available?: boolean;
+  kc?: number | null;
+  irrigated_ha?: number;
+  stored_start_hm3?: number | null;
+  stored_end_hm3?: number | null;
+  cumulative_demand_hm3?: number | null;
+  days_autonomy_start?: number | null;
+  days_autonomy_end?: number | null;
+  risk_level_end?: string;
+  days?: IrrigationProjectionDay[];
+  error?: string;
+}
+
+export interface IrrigationProjectionSnapshot {
+  available: boolean;
+  horizon_days?: number;
+  source?: string;
+  attribution?: string;
+  note?: string;
+  regional?: IrrigationProjectionProvince | null;
+  by_province?: IrrigationProjectionProvince[];
+}
+
+export interface RiaSiarCompareMetrics {
+  stations?: number;
+  et0_mm?: number | null;
+  mean_temp_c?: number | null;
+  precip_mm?: number | null;
+  mean_humidity_pct?: number | null;
+}
+
+export interface RiaSiarCompareProvince {
+  province_name: string;
+  ria: RiaSiarCompareMetrics;
+  siar: RiaSiarCompareMetrics;
+  delta: {
+    et0_mm?: number | null;
+    mean_temp_c?: number | null;
+    precip_mm?: number | null;
+  };
+}
+
+export interface RiaSiarCompareSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  note?: string;
+  regional?: RiaSiarCompareProvince | null;
+  by_province?: RiaSiarCompareProvince[];
+}
+
 export interface IrrigationAutonomyAlert {
   code: string;
   severity: "critical" | "warning" | "watch";
@@ -342,6 +404,8 @@ export interface IrrigationAutonomySnapshot {
   regional?: IrrigationAutonomyProvince | null;
   by_province?: IrrigationAutonomyProvince[];
   alerts?: IrrigationAutonomyAlert[];
+  projection?: IrrigationProjectionSnapshot;
+  ria_siar_compare?: RiaSiarCompareSnapshot;
 }
 
 export interface MeteoSiarSnapshot {
