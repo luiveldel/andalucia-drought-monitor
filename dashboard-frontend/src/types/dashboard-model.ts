@@ -287,6 +287,13 @@ export interface MeteoSiarTrendDay {
 }
 
 
+export interface IrrigationAutonomyTrendPoint {
+  date: string;
+  days_autonomy: number | null;
+  stored_hm3: number | null;
+  daily_demand_hm3: number | null;
+}
+
 export interface IrrigationAutonomyProvince {
   province_name: string;
   stored_hm3: number | null;
@@ -306,6 +313,11 @@ export interface IrrigationAutonomyProvince {
   weeks_autonomy: number | null;
   risk_level: "critical" | "warning" | "watch" | "ok" | "unknown";
   siar_station_count: number;
+  deficit_7d_hm3?: number | null;
+  deficit_30d_hm3?: number | null;
+  storage_burn_hm3_per_day?: number | null;
+  burn_vs_demand_ratio?: number | null;
+  autonomy_trend?: IrrigationAutonomyTrendPoint[];
 }
 
 export interface IrrigationAutonomySnapshot {

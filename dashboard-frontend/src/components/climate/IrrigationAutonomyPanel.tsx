@@ -7,6 +7,8 @@ import type {
   IrrigationAutonomySnapshot,
 } from "@/types/dashboard-model";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -108,6 +110,17 @@ export function IrrigationAutonomyPanel(props: {
     [a.by_province],
   );
 
+  const trend = useMemo(() => {
+    const pts = row?.autonomy_trend ?? [];
+    return pts.map((p) => ({
+      date: (p.date ?? "").slice(5),
+      fullDate: p.date,
+      days: p.days_autonomy ?? null,
+      stored: p.stored_hm3 ?? null,
+      demand: p.daily_demand_hm3 ?? null,
+    }));
+  }, [row?.autonomy_trend]);
+
   if (!a.available) {
     return (
       <section>
@@ -118,6 +131,12 @@ export function IrrigationAutonomyPanel(props: {
       </section>
     );
   }
+
+  const burnRatio = row?.burn_vs_demand_ratio;
+  const burnTone =
+    burnRatio != null && burnRatio > 1
+      ? "border-rose-600/30 bg-rose-500/10 text-rose-800 dark:text-rose-200"
+      : undefined;
 
   return (
     <section>
@@ -140,11 +159,11 @@ export function IrrigationAutonomyPanel(props: {
                   {levelLabel(row.risk_level)}
                 </span>
                 <span className="text-xs text-muted dark:text-muted-dark">
-                  Orientativo: no descuenta abastecimiento urbano ni derechos de riego.
+                  Orientativo: no descuenta abastecimiento urbano residual ni derechos de riego.
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
                 <Kpi
                   label="Días de autonomía"
                   value={fmt(row.days_autonomy, " d", 0)}
@@ -165,12 +184,65 @@ export function IrrigationAutonomyPanel(props: {
                   }
                 />
                 <Kpi label="Demanda día" value={fmt(row.daily_demand_hm3, " hm³", 2)} hint={`Neto ${fmt(row.net_demand_mm, " mm")}`} />
+                <Kpi
+                  label="Déficit 7d"
+                  value={fmt(row.deficit_7d_hm3, " hm³", 1)}
+                  hint={`30d ${fmt(row.deficit_30d_hm3, " hm³", 1)}`}
+                />
+                <Kpi
+                  label="Burn rate"
+                  value={fmt(row.storage_burn_hm3_per_day, " hm³/d", 2)}
+                  hint={
+                    burnRatio != null
+                      ? `Ratio vs demanda ${fmt(burnRatio, "×", 2)}${burnRatio > 1 ? " (vacia más rápido)" : ""}`
+                      : "Sin historial embalse"
+                  }
+                  tone={burnTone}
+                />
                 <Kpi label="ET0 SiAR" value={fmt(row.et0_mm, " mm")} hint={`Kc ${fmt(row.kc, "", 2)}`} />
                 <Kpi label="Regadío" value={fmt(row.irrigated_ha, " ha", 0)} hint="Junta 2023" />
                 <Kpi label="Estaciones SiAR" value={String(row.siar_station_count)} />
               </div>
             </>
           )}
+
+          {trend.length > 1 ? (
+            <div>
+              <p className="mb-2 text-xs font-medium text-muted dark:text-muted-dark">
+                Tendencia de autonomía (días · fechas con SiAR y embalse)
+              </p>
+              <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="autonomyFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0284c7" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#0284c7" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} width={40} />
+                    <Tooltip
+                      formatter={(value: number | string) => [`${value} d`, "Autonomía"]}
+                      labelFormatter={(_, payload) => {
+                        const pt = payload?.[0]?.payload as { fullDate?: string } | undefined;
+                        return pt?.fullDate ?? "";
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="days"
+                      stroke="#0284c7"
+                      fill="url(#autonomyFill)"
+                      strokeWidth={2}
+                      connectNulls
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : null}
 
           {chart.length > 0 ? (
             <div>
