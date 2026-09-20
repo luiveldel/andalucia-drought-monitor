@@ -86,6 +86,7 @@ export function DashboardPage() {
             alerts={data.alerts}
             recommendations={data.recommendations}
             riskBoard={data.riskBoard}
+            irrigationAutonomy={data.irrigationAutonomy}
           />
         ) : null}
 

@@ -315,6 +315,9 @@ export interface IrrigationProjectionProvince {
   cumulative_demand_hm3?: number | null;
   days_autonomy_start?: number | null;
   days_autonomy_end?: number | null;
+  /** Calendar days until projected autonomy < threshold (0 = already critical). */
+  days_until_critical?: number | null;
+  critical_threshold_days?: number | null;
   risk_level_end?: string;
   days?: IrrigationProjectionDay[];
   error?: string;

@@ -153,7 +153,11 @@ def _build_alerts(province_rows: list[dict[str, Any]], avg_fill: float, precip_3
     return alerts[:12]
 
 
-def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _build_recommendations(
+    alerts: list[dict[str, Any]],
+    risk_board: list[dict[str, Any]],
+    irrigation_autonomy: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     recs: list[dict[str, Any]] = []
     critical = [a for a in alerts if a["severity"] == "critical"]
     if critical:
@@ -175,6 +179,37 @@ def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[s
                 "detail": f"{names}: analizar extracciones y pérdidas; contrastar con aportaciones.",
             }
         )
+    # Irrigation cut-risk from autonomy projection
+    ia = irrigation_autonomy or {}
+    proj = ia.get("projection") or {}
+    cut_near: list[tuple[str, int]] = []
+    for row in proj.get("by_province") or []:
+        if not row.get("available"):
+            continue
+        until = row.get("days_until_critical")
+        if until is None:
+            continue
+        try:
+            until_i = int(until)
+        except (TypeError, ValueError):
+            continue
+        if until_i <= 14:
+            cut_near.append((str(row.get("province_name") or "?"), until_i))
+    if cut_near:
+        cut_near.sort(key=lambda x: x[1])
+        bits = ", ".join(f"{n} ({d}d)" if d > 0 else f"{n} (ya crítico)" for n, d in cut_near[:4])
+        worst = cut_near[0][1]
+        recs.insert(
+            0,
+            {
+                "priority": "high" if worst <= 7 else "medium",
+                "title": "Riesgo de corte de riego (autonomía)",
+                "detail": (
+                    f"Provincias con ≤14 días hasta autonomía <30 d: {bits}. "
+                    "Revisar turnos, prioridad de cultivos y embalses de riego."
+                ),
+            },
+        )
     if not recs:
         recs.append(
             {
@@ -183,7 +218,7 @@ def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[s
                 "detail": "Sin alertas críticas; revisar ranking provincial y lluvia acumulada cada lunes.",
             }
         )
-    return recs
+    return recs[:5]
 
 
 def _weekly_narrative(deltas: dict[str, float], avg_fill: float, alert_n: int) -> str:
@@ -758,7 +793,7 @@ def load_dashboard_data() -> dict[str, Any]:
             1 for p in province_rows if _severity_from_fill(float(p.get("avg_fill_pct") or 0)) in ("emergency", "critical")
         )
         effective_alerts = max(int(alert_count), prov_alert_n)
-        recommendations = _build_recommendations(alerts, risk_board)
+        recommendations = _build_recommendations(alerts, risk_board, irrigation_autonomy)
         narrative = _weekly_narrative(weekly_deltas, avg_fill, effective_alerts)
 
         return {

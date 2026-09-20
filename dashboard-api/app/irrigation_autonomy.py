@@ -727,7 +727,14 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
 
         projection = build_autonomy_projection(by_province, horizon_days=7)
         if regional and projection.get("regional"):
+            from app.irrigation_extras import _days_until_critical
+
             projection["regional"]["days_autonomy_start"] = regional.get("days_autonomy")
+            start = regional.get("days_autonomy")
+            projection["regional"]["days_until_critical"] = _days_until_critical(
+                float(start) if start is not None else None,
+                projection["regional"].get("days") or [],
+            )
         compare = build_ria_siar_compare(conn, as_of=as_of_siar)
 
         return {

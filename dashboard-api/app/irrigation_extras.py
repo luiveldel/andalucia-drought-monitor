@@ -25,6 +25,38 @@ from app.meteo_forecast import OM_LAT as _OM_LAT, OM_LON as _OM_LON
 _cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 30 * 60
 
+CRITICAL_AUTONOMY_DAYS = 30.0
+
+
+def _days_until_critical(
+    days_autonomy_start: float | None,
+    series: list[dict[str, Any]],
+    threshold: float = CRITICAL_AUTONOMY_DAYS,
+) -> int | None:
+    """Calendar days until projected autonomy falls below threshold (0 = already)."""
+    if days_autonomy_start is not None and float(days_autonomy_start) < threshold:
+        return 0
+    for i, day in enumerate(series):
+        da = day.get("days_autonomy")
+        if da is not None and float(da) < threshold:
+            return i + 1  # after that many forecast days
+    # not hit within horizon — estimate with last step if declining
+    if len(series) >= 2 and days_autonomy_start is not None:
+        start = float(days_autonomy_start)
+        end = series[-1].get("days_autonomy")
+        if end is not None:
+            end_f = float(end)
+            drop = start - end_f
+            if drop > 0.5:
+                # linear extrapolate beyond horizon
+                per_day = drop / len(series)
+                remain = start - threshold
+                if per_day > 1e-9:
+                    est = int(remain / per_day + 0.999)
+                    return max(len(series) + 1, est) if start >= threshold else 0
+    return None  # unknown / not approaching
+
+
 
 def _rows(conn: Connection, sql: str, **params: Any) -> list[dict[str, Any]]:
     result = conn.execute(text(sql), params)
@@ -133,6 +165,11 @@ def build_autonomy_projection(
                 }
             )
         end_days = series[-1]["days_autonomy"] if series else None
+        start_days = base.get("days_autonomy")
+        until_crit = _days_until_critical(
+            float(start_days) if start_days is not None else None,
+            series,
+        )
         projected.append(
             {
                 "province_name": name,
@@ -142,8 +179,10 @@ def build_autonomy_projection(
                 "stored_start_hm3": base.get("stored_hm3"),
                 "stored_end_hm3": series[-1]["stored_hm3"] if series else None,
                 "cumulative_demand_hm3": _f(cum_demand, 3),
-                "days_autonomy_start": base.get("days_autonomy"),
+                "days_autonomy_start": start_days,
                 "days_autonomy_end": end_days,
+                "days_until_critical": until_crit,
+                "critical_threshold_days": CRITICAL_AUTONOMY_DAYS,
                 "risk_level_end": _risk_level(
                     float(end_days) if end_days is not None else None
                 ),
@@ -188,6 +227,12 @@ def build_autonomy_projection(
                 }
             )
         end_days = series_r[-1]["days_autonomy"] if series_r else None
+        # regional start filled later by caller; compute until_crit from series only
+        until_crit = _days_until_critical(None, series_r)
+        # if first projected day already critical
+        if series_r and series_r[0].get("days_autonomy") is not None:
+            if float(series_r[0]["days_autonomy"]) < CRITICAL_AUTONOMY_DAYS:
+                until_crit = 0
         regional = {
             "province_name": "Andalucía",
             "available": True,
@@ -196,6 +241,8 @@ def build_autonomy_projection(
             "cumulative_demand_hm3": _f(cum, 3),
             "days_autonomy_start": None,
             "days_autonomy_end": end_days,
+            "days_until_critical": until_crit,
+            "critical_threshold_days": CRITICAL_AUTONOMY_DAYS,
             "risk_level_end": _risk_level(
                 float(end_days) if end_days is not None else None
             ),

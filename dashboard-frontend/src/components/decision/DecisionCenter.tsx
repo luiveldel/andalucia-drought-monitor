@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import type {
   DecisionAlert,
   DecisionRecommendation,
+  IrrigationAutonomySnapshot,
+  IrrigationProjectionProvince,
   RiskBoardRow,
   WeeklyDeltas,
 } from "@/types/dashboard-model";
@@ -28,14 +30,45 @@ function DeltaChip(props: { label: string; value: number; unit: string }) {
   );
 }
 
+function formatUntilCritical(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  if (v === 0) return "Ya crítico";
+  if (v > 60) return `>${60} d`;
+  return `${v} d`;
+}
+
+function untilTone(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "text-muted dark:text-muted-dark";
+  if (v === 0) return "text-sev-critical";
+  if (v <= 7) return "text-sev-critical";
+  if (v <= 14) return "text-sev-emergency";
+  if (v <= 30) return "text-amber-700 dark:text-amber-400";
+  return "text-sev-normal";
+}
+
+function cutRiskRows(autonomy: IrrigationAutonomySnapshot | undefined): IrrigationProjectionProvince[] {
+  const rows = autonomy?.projection?.by_province ?? [];
+  return [...rows]
+    .filter((r) => r.available && r.days_until_critical != null)
+    .sort((a, b) => (a.days_until_critical ?? 9999) - (b.days_until_critical ?? 9999));
+}
+
 export function DecisionCenter(props: {
   narrative: string;
   deltas: WeeklyDeltas;
   alerts: DecisionAlert[];
   recommendations: DecisionRecommendation[];
   riskBoard: RiskBoardRow[];
+  irrigationAutonomy?: IrrigationAutonomySnapshot;
 }) {
   const topRisk = [...props.riskBoard].sort((a, b) => b.risk_score - a.risk_score);
+  const cutRows = cutRiskRows(props.irrigationAutonomy);
+  const regionalUntil = props.irrigationAutonomy?.projection?.regional?.days_until_critical;
+  const threshold =
+    props.irrigationAutonomy?.projection?.regional?.critical_threshold_days ??
+    cutRows[0]?.critical_threshold_days ??
+    30;
+
   return (
     <section className="space-y-4">
       <SectionHeader
@@ -72,6 +105,61 @@ export function DecisionCenter(props: {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-muted dark:text-muted-dark">
+                Días hasta crítico (riego)
+              </p>
+              <p className="mt-1 text-xs text-muted dark:text-muted-dark">
+                Calendario hasta autonomía proyectada &lt; {threshold} d (embalse usable ÷ demanda SiAR×Kc).
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] uppercase tracking-wide text-muted dark:text-muted-dark">Andalucía</p>
+              <p className={cn("font-display text-2xl font-semibold tabular-nums", untilTone(regionalUntil))}>
+                {formatUntilCritical(regionalUntil)}
+              </p>
+            </div>
+          </div>
+          {cutRows.length === 0 ? (
+            <p className="mt-3 text-sm text-muted dark:text-muted-dark">
+              Sin proyección de autonomía disponible todavía.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead className="text-xs uppercase text-muted dark:text-muted-dark">
+                  <tr>
+                    <th className="pb-2 font-medium">Provincia</th>
+                    <th className="pb-2 font-medium">Hasta crítico</th>
+                    <th className="pb-2 font-medium">Autonomía hoy</th>
+                    <th className="pb-2 font-medium">Autonomía +7d</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cutRows.map((r) => (
+                    <tr key={r.province_name} className="border-t border-black/5 dark:border-white/5">
+                      <td className="py-2 font-medium">{r.province_name}</td>
+                      <td className={cn("py-2 tabular-nums font-semibold", untilTone(r.days_until_critical))}>
+                        {formatUntilCritical(r.days_until_critical)}
+                      </td>
+                      <td className="py-2 tabular-nums">
+                        {r.days_autonomy_start != null ? `${r.days_autonomy_start} d` : "—"}
+                      </td>
+                      <td className="py-2 tabular-nums">
+                        {r.days_autonomy_end != null ? `${r.days_autonomy_end} d` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

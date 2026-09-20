@@ -70,7 +70,20 @@ export function IrrigationProjectionPanel(props: {
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="rounded-xl border border-amber-600/30 bg-amber-500/5 p-3 sm:col-span-1">
+                  <p className="text-[11px] uppercase tracking-wide text-muted dark:text-muted-dark">Hasta crítico</p>
+                  <p className="mt-1 font-display text-xl font-semibold tabular-nums">
+                    {row.days_until_critical === 0
+                      ? "Ya crítico"
+                      : row.days_until_critical != null
+                        ? `${row.days_until_critical} d`
+                        : "—"}
+                  </p>
+                  <p className="text-[11px] text-muted dark:text-muted-dark">
+                    umbral &lt; {row.critical_threshold_days ?? 30} d autonomía
+                  </p>
+                </div>
                 <div className="rounded-xl border border-border/80 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted dark:text-muted-dark">Autonomía hoy</p>
                   <p className="mt-1 font-display text-xl font-semibold tabular-nums">{fmt(row.days_autonomy_start, " d", 0)}</p>
