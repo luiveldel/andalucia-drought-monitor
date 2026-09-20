@@ -123,7 +123,7 @@ export function IrrigationAutonomyPanel(props: {
     <section>
       <SectionHeader
         title="Autonomía de riego"
-        description={`Piloto · ${props.province} · embalses ${a.as_of_reservoir ?? "—"} · SiAR ${a.as_of_siar ?? "—"} · Kc=${a.kc ?? 0.75}`}
+        description={`Afinado · ${props.province} · embalses ${a.as_of_reservoir ?? "—"} · SiAR ${a.as_of_siar ?? "—"}`}
       />
       <Card className="mt-3 border-amber-600/20 dark:border-amber-400/25">
         <CardContent className="space-y-4 pt-4">
@@ -148,12 +148,24 @@ export function IrrigationAutonomyPanel(props: {
                 <Kpi
                   label="Días de autonomía"
                   value={fmt(row.days_autonomy, " d", 0)}
-                  hint={fmt(row.weeks_autonomy, " semanas", 1)}
+                  hint={
+                    row.days_autonomy_gross != null
+                      ? `Bruto ${fmt(row.days_autonomy_gross, " d", 0)} · ${fmt(row.weeks_autonomy, " sem", 1)}`
+                      : fmt(row.weeks_autonomy, " semanas", 1)
+                  }
                   tone={levelClass(row.risk_level)}
                 />
-                <Kpi label="Embalsado" value={fmt(row.stored_hm3, " hm³", 0)} hint={`Llenado ${fmt(row.fill_pct, " %", 0)}`} />
+                <Kpi
+                  label="Embalsado usable"
+                  value={fmt(row.stored_hm3, " hm³", 0)}
+                  hint={
+                    (row.urban_excluded_hm3 ?? 0) > 0
+                      ? `Excl. urbano ${fmt(row.urban_excluded_hm3, " hm³", 0)}`
+                      : `Llenado ${fmt(row.fill_pct, " %", 0)}`
+                  }
+                />
                 <Kpi label="Demanda día" value={fmt(row.daily_demand_hm3, " hm³", 2)} hint={`Neto ${fmt(row.net_demand_mm, " mm")}`} />
-                <Kpi label="ET0 SiAR" value={fmt(row.et0_mm, " mm")} hint={`Pe ${fmt(row.pe_mm, " mm")}`} />
+                <Kpi label="ET0 SiAR" value={fmt(row.et0_mm, " mm")} hint={`Kc ${fmt(row.kc, "", 2)}`} />
                 <Kpi label="Regadío" value={fmt(row.irrigated_ha, " ha", 0)} hint="Junta 2023" />
                 <Kpi label="Estaciones SiAR" value={String(row.siar_station_count)} />
               </div>
@@ -189,6 +201,9 @@ export function IrrigationAutonomyPanel(props: {
             </div>
           ) : null}
 
+          {a.storage_scope ? (
+            <p className="text-[11px] leading-relaxed text-muted dark:text-muted-dark">{a.storage_scope}</p>
+          ) : null}
           {a.note ? (
             <p className="text-[11px] leading-relaxed text-muted dark:text-muted-dark">{a.note}</p>
           ) : null}
