@@ -185,23 +185,66 @@ function buildSeverity(api: ApiPayload): SeverityDistributionItem[] {
   }));
 }
 
+function normProv(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+function irrigationLookup(api: ApiPayload): Map<
+  string,
+  { days: number | null; risk: string; until: number | null }
+> {
+  const m = new Map<string, { days: number | null; risk: string; until: number | null }>();
+  const ia = api.irrigation_autonomy;
+  const projBy = new Map<string, number | null>();
+  for (const row of ia?.projection?.by_province ?? []) {
+    projBy.set(normProv(String(row.province_name ?? "")), row.days_until_critical ?? null);
+  }
+  for (const row of ia?.by_province ?? []) {
+    const name = String(row.province_name ?? "");
+    m.set(normProv(name), {
+      days: row.days_autonomy ?? null,
+      risk: String(row.risk_level ?? "unknown"),
+      until: projBy.get(normProv(name)) ?? null,
+    });
+  }
+  return m;
+}
+
 function buildProvinces(api: ApiPayload): ProvinceStatus[] {
+  const irr = irrigationLookup(api);
+  const enrich = (province: string, base: ProvinceStatus): ProvinceStatus => {
+    const hit = irr.get(normProv(province));
+    if (!hit) return base;
+    return {
+      ...base,
+      irrigationDaysAutonomy: hit.days,
+      irrigationRiskLevel: (hit.risk as ProvinceStatus["irrigationRiskLevel"]) || "unknown",
+      daysUntilCritical: hit.until,
+    };
+  };
   const board = api.risk_board ?? [];
   if (board.length) {
-    return board.map((r) => ({
-      province: r.province,
-      fillPercentage: Number(r.fill_pct),
-      severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
-      trend: Number(r.trend_7d),
-    }));
+    return board.map((r) =>
+      enrich(r.province, {
+        province: r.province,
+        fillPercentage: Number(r.fill_pct),
+        severity: r.severity ?? severityFromFill(Number(r.fill_pct)),
+        trend: Number(r.trend_7d),
+      }),
+    );
   }
   return (api.province_rows ?? []).map((p) => {
     const fill = Number(p.avg_fill_pct ?? p.fill_pct ?? 0);
-    return {
-      province: String(p.province_name ?? p.province ?? ""),
+    const province = String(p.province_name ?? p.province ?? "");
+    return enrich(province, {
+      province,
       fillPercentage: fill,
       severity: severityFromFill(fill),
-    };
+    });
   });
 }
 

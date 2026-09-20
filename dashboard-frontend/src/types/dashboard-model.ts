@@ -23,11 +23,17 @@ export interface SeverityDistributionItem {
   affectedAreaHa?: number;
 }
 
+export type IrrigationRiskLevel = "critical" | "warning" | "watch" | "ok" | "unknown";
+
 export interface ProvinceStatus {
   province: string;
   fillPercentage: number;
   severity: SeverityLevel;
   trend?: number;
+  /** Days of usable irrigation autonomy (SiAR×Kc). */
+  irrigationDaysAutonomy?: number | null;
+  irrigationRiskLevel?: IrrigationRiskLevel;
+  daysUntilCritical?: number | null;
 }
 
 export interface ClimateIndicator {

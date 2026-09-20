@@ -98,6 +98,15 @@ export function DashboardPage() {
                 <KpiGrid kpis={data.kpis} />
               </div>
             </section>
+            <section>
+              <SectionHeader
+                title="Semáforo provincial de riego"
+                description="Autonomía usable (SiAR×Kc) por provincia. Cambia a llenado si quieres ver embalses."
+              />
+              <div className="mt-3">
+                <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
+              </div>
+            </section>
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
               <div className="space-y-4 xl:col-span-2">
                 <ReservoirEvolutionChart data={data.evolution} />
@@ -118,7 +127,7 @@ export function DashboardPage() {
             <SectionHeader title={t("section.provinces")} description={t("section.provinces.desc")} />
             <div className="mt-3 space-y-4">
               <ProvinceStatusGrid provinces={data.provinces} />
-              <ProvinceStatusMap provinces={data.provinces} />
+              <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
             </div>
           </section>
         ) : null}

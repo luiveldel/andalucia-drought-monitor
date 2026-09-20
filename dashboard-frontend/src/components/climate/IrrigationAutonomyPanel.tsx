@@ -27,13 +27,13 @@ function fmt(n: number | null | undefined, unit = "", digits = 1): string {
 function levelLabel(level: string): string {
   switch (level) {
     case "critical":
-      return "Crítico (<30 d)";
+      return "Crítico (<21 d)";
     case "warning":
       return "Alerta (<60 d)";
     case "watch":
-      return "Vigilancia (<120 d)";
+      return "Vigilancia (<90 d)";
     case "ok":
-      return "Holgado (≥120 d)";
+      return "Holgado (≥90 d)";
     default:
       return "Sin dato";
   }
