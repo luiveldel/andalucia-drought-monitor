@@ -727,6 +727,83 @@ export interface SiarBySystemSnapshot {
   province_shares?: SiarBySystemProvinceShare[];
 }
 
+
+export interface CampaignCompareYear {
+  year: number;
+  source?: string;
+  source_label_es?: string;
+  window_start?: string;
+  window_end?: string;
+  days_with_data?: number;
+  days_siar?: number;
+  days_ria?: number;
+  is_current?: boolean;
+  cum_demand_hm3?: number | null;
+  cum_net_demand_mm?: number | null;
+  cum_et0_mm?: number | null;
+  cum_pe_mm?: number | null;
+}
+
+export interface CampaignCompareProvince {
+  province_name: string;
+  irrigated_ha?: number;
+  kc?: number | null;
+  days_with_data?: number;
+  cum_et0_mm?: number | null;
+  cum_pe_mm?: number | null;
+  cum_net_demand_mm?: number | null;
+  cum_demand_hm3?: number | null;
+  year?: number;
+  source?: string;
+  series?: { year: number; cum_demand_hm3?: number | null }[];
+}
+
+export interface CampaignCompareComparison {
+  vs_year: number;
+  vs_source?: string;
+  current_hm3?: number | null;
+  vs_hm3?: number | null;
+  delta_hm3?: number | null;
+  delta_pct?: number | null;
+  verdict?: "worse" | "better" | "similar" | "unknown" | string;
+  plain_es?: string;
+  plain_en?: string;
+}
+
+export interface CampaignCompareSnapshot {
+  available: boolean;
+  campaign?: {
+    label_es?: string;
+    start_month?: number;
+    start_day?: number;
+    end_month?: number;
+    end_day?: number;
+  };
+  as_of?: string | null;
+  through_doy?: { month?: number; day?: number; label?: string } | null;
+  current_year?: number | null;
+  unit_demand?: string;
+  unit_depth?: string;
+  formula_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  method_es?: string;
+  coverage?: {
+    siar_years?: number[];
+    ria_proxy_years?: number[];
+    siar_min_fecha?: string | null;
+    siar_max_fecha?: string | null;
+    ria_min_fecha?: string | null;
+    ria_max_fecha?: string | null;
+  };
+  headline_es?: string;
+  headline_en?: string;
+  regional?: CampaignCompareProvince | null;
+  by_province?: CampaignCompareProvince[];
+  years?: CampaignCompareYear[];
+  comparisons?: CampaignCompareComparison[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -749,6 +826,7 @@ export interface IrrigationAutonomySnapshot {
   crop_etc?: CropEtcSnapshot;
   effective_precip?: EffectivePrecipSnapshot;
   siar_by_system?: SiarBySystemSnapshot;
+  campaign_compare?: CampaignCompareSnapshot;
 }
 
 export interface MeteoSiarSnapshot {
