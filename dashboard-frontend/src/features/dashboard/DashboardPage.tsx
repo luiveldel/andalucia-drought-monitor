@@ -19,6 +19,7 @@ import { HeatDemandCrossPanel } from "@/components/climate/HeatDemandCrossPanel"
 import { CutRiskPanel } from "@/components/climate/CutRiskPanel";
 import { IrrigationScenariosPanel } from "@/components/climate/IrrigationScenariosPanel";
 import { CropEtcPanel } from "@/components/climate/CropEtcPanel";
+import { EffectivePrecipPanel } from "@/components/climate/EffectivePrecipPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -177,6 +178,7 @@ export function DashboardPage() {
             <IrrigationProjectionPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
             <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <EffectivePrecipPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <CropEtcPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />

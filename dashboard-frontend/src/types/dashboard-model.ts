@@ -618,6 +618,58 @@ export interface CropEtcSnapshot {
   by_province?: CropEtcScope[];
 }
 
+
+export interface EffectivePrecipDay {
+  date: string;
+  precip_mm?: number | null;
+  pe_mm?: number | null;
+  pe_pmon_mm?: number | null;
+  pe_est_mm?: number | null;
+  lost_mm?: number | null;
+  ratio_pe_over_p?: number | null;
+  source?: string;
+  pe_station_count?: number | null;
+  station_count?: number | null;
+}
+
+export interface EffectivePrecipScope {
+  province_name: string;
+  as_of?: string | null;
+  precip_mm?: number | null;
+  pe_mm?: number | null;
+  pe_pmon_mm?: number | null;
+  pe_est_mm?: number | null;
+  effective_precip_mm?: number | null;
+  lost_mm?: number | null;
+  ratio_pe_over_p?: number | null;
+  source?: string;
+  source_window_7d?: string;
+  precip_7d_mm?: number | null;
+  pe_7d_mm?: number | null;
+  ratio_7d?: number | null;
+  precip_30d_mm?: number | null;
+  pe_30d_mm?: number | null;
+  ratio_30d?: number | null;
+  days_in_7d?: number;
+  days_in_30d?: number;
+  pe_station_count?: number | null;
+  station_count?: number | null;
+  series?: EffectivePrecipDay[];
+}
+
+export interface EffectivePrecipSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  unit?: string;
+  source_preferred?: string;
+  formula_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  definition_es?: string;
+  regional?: EffectivePrecipScope | null;
+  by_province?: EffectivePrecipScope[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -638,6 +690,7 @@ export interface IrrigationAutonomySnapshot {
   cut_risk?: CutRiskSnapshot;
   scenarios?: IrrigationScenariosSnapshot;
   crop_etc?: CropEtcSnapshot;
+  effective_precip?: EffectivePrecipSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

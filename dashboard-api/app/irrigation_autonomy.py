@@ -137,6 +137,7 @@ def _empty() -> dict[str, Any]:
         "cut_risk": {"available": False, "note_es": "", "method_es": "", "weights_nominal": {}, "bands": {}, "regional": None, "by_province": []},
         "scenarios": {"available": False, "modes": [], "horizons": [7, 14, 21], "note_es": "", "caveats_es": [], "by_mode": {}},
         "crop_etc": {"available": False, "as_of_siar": None, "formula_es": "ETc (mm) = Kc × ET0_SiAR", "note_es": "", "caveats_es": [], "kc_table": [], "crops_meta": [], "regional": None, "by_province": []},
+        "effective_precip": {"available": False, "as_of": None, "unit": "mm", "source_preferred": "siar_pepmon", "formula_es": "", "note_es": "", "caveats_es": [], "definition_es": "", "regional": None, "by_province": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -246,8 +247,10 @@ def _load_siar_history(
             fecha::text AS d,
             provincia_nombre AS province_name,
             COUNT(*)::int AS station_count,
+            COUNT(*) FILTER (WHERE precip_efectiva IS NOT NULL)::int AS pe_n,
             AVG(et0)::float AS et0_mm,
             AVG(COALESCE(precip_efectiva, 0))::float AS pe_mm,
+            AVG(precip_efectiva)::float AS pe_raw_mm,
             AVG(COALESCE(precipitacion, 0))::float AS precip_mm
         FROM raw.raw_siar_clima_diario
         WHERE ccaa_codigo = 'AND'
@@ -263,11 +266,14 @@ def _load_siar_history(
     )
     out: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
+        pe_raw = r.get("pe_raw_mm")
         out[str(r["province_name"])].append(
             {
                 "date": str(r["d"])[:10],
                 "et0_mm": float(r["et0_mm"] or 0),
                 "pe_mm": float(r.get("pe_mm") or 0),
+                "pe_raw_mm": float(pe_raw) if pe_raw is not None else None,
+                "pe_n": int(r.get("pe_n") or 0),
                 "precip_mm": float(r.get("precip_mm") or 0),
                 "station_count": int(r.get("station_count") or 0),
             }
@@ -1014,6 +1020,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         from app.irrigation_extras import build_irrigation_scenarios
         from app.cut_risk import build_cut_risk
         from app.crop_etc import build_crop_etc
+        from app.effective_precip import build_effective_precip
 
         scenarios = build_irrigation_scenarios(
             by_province, regional=regional, horizons=(7, 14, 21)
@@ -1021,6 +1028,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         crop_etc = build_crop_etc(
             by_province, regional=regional, as_of_siar=as_of_siar
         )
+        effective_precip = build_effective_precip(siar_hist, as_of=as_of_siar)
         spi_snap = None
         try:
             from app.spi_gis import load_spi_latest
@@ -1049,7 +1057,8 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
                 "Proyección 7d con Open-Meteo ET0; escenarios 7/14/21 (pronóstico vs seco); "
                 "riesgo de corte 0–100; comparativa RIA vs SiAR; balance ET0−P SiAR (mm); "
-                "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha). "
+                "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
+                "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1063,6 +1072,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "cut_risk": cut_risk,
             "scenarios": scenarios,
             "crop_etc": crop_etc,
+            "effective_precip": effective_precip,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

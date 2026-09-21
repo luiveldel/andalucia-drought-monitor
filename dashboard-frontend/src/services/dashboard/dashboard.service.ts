@@ -377,6 +377,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       cut_risk: { available: false, note_es: "", method_es: "", weights_nominal: {}, bands: {}, regional: null, by_province: [] },
       scenarios: { available: false, modes: [], horizons: [7, 14, 21], note_es: "", caveats_es: [], by_mode: {} },
       crop_etc: { available: false, as_of_siar: null, formula_es: "ETc (mm) = Kc × ET0_SiAR", note_es: "", caveats_es: [], kc_table: [], crops_meta: [], regional: null, by_province: [] },
+      effective_precip: { available: false, as_of: null, unit: "mm", source_preferred: "siar_pepmon", formula_es: "", note_es: "", caveats_es: [], definition_es: "", regional: null, by_province: [] },
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {
