@@ -128,7 +128,6 @@ export function DashboardPage() {
                 <InsightsPanel insights={data.insights} />
               </div>
             </div>
-            <PesEscasezKpiPanel autonomy={data.irrigationAutonomy} />
             {data.dataNotes.length > 0 ? (
               <ul className="list-disc space-y-1 pl-4 text-xs text-muted dark:text-muted-dark">
                 {data.dataNotes.map((note) => (
@@ -167,8 +166,8 @@ export function DashboardPage() {
                 />
                 <HeatStressPanel heatStress={data.heatStress} />
                 <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-                <ExploitationSystemsPanel systems={data.exploitationSystems} />
-                <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
+                <EffectivePrecipPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+                <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
                 <SpiPanel spi={data.spi} />
               </>
             )}
@@ -185,18 +184,12 @@ export function DashboardPage() {
               <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
             </div>
             <IrrigationAlertsPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationProjectionPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
-            <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <EffectivePrecipPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <CropEtcPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
-            <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
-            <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <ClimatePercentilesPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
 
@@ -227,7 +220,28 @@ export function DashboardPage() {
           </div>
         ) : null}
 
-        {tab === "reservoirs" ? <ReservoirTable rows={data.reservoirs} /> : null}
+        {tab === "reservoirs" ? (
+          <div className="space-y-8">
+            <section>
+              <SectionHeader
+                title={t("section.reservoirs")}
+                description={t("section.reservoirs.desc")}
+              />
+              <div className="mt-3">
+                <ExploitationSystemsPanel systems={data.exploitationSystems} />
+              </div>
+            </section>
+            <section>
+              <SectionHeader
+                title={t("section.reservoirs.table")}
+                description={t("section.reservoirs.table.desc")}
+              />
+              <div className="mt-3">
+                <ReservoirTable rows={data.reservoirs} />
+              </div>
+            </section>
+          </div>
+        ) : null}
       </main>
     </DashboardShell>
   );
