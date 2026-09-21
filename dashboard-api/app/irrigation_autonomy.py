@@ -138,6 +138,7 @@ def _empty() -> dict[str, Any]:
         "scenarios": {"available": False, "modes": [], "horizons": [7, 14, 21], "note_es": "", "caveats_es": [], "by_mode": {}},
         "crop_etc": {"available": False, "as_of_siar": None, "formula_es": "ETc (mm) = Kc × ET0_SiAR", "note_es": "", "caveats_es": [], "kc_table": [], "crops_meta": [], "regional": None, "by_province": []},
         "effective_precip": {"available": False, "as_of": None, "unit": "mm", "source_preferred": "siar_pepmon", "formula_es": "", "note_es": "", "caveats_es": [], "definition_es": "", "regional": None, "by_province": []},
+        "siar_by_system": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "proxy": "capacity_share_within_province", "proxy_label_es": "", "excluded_systems": [], "unit_demand": "hm3/day", "unit_depth": "mm", "formula_es": "", "note_es": "", "caveats_es": [], "method_es": "", "by_system": [], "province_shares": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -1021,6 +1022,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         from app.cut_risk import build_cut_risk
         from app.crop_etc import build_crop_etc
         from app.effective_precip import build_effective_precip
+        from app.exploitation_demand import build_exploitation_demand
 
         scenarios = build_irrigation_scenarios(
             by_province, regional=regional, horizons=(7, 14, 21)
@@ -1029,6 +1031,12 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             by_province, regional=regional, as_of_siar=as_of_siar
         )
         effective_precip = build_effective_precip(siar_hist, as_of=as_of_siar)
+        siar_by_system = build_exploitation_demand(
+            conn,
+            by_province=by_province,
+            as_of_reservoir=as_of_res,
+            as_of_siar=as_of_siar,
+        )
         spi_snap = None
         try:
             from app.spi_gis import load_spi_latest
@@ -1058,7 +1066,8 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "Proyección 7d con Open-Meteo ET0; escenarios 7/14/21 (pronóstico vs seco); "
                 "riesgo de corte 0–100; comparativa RIA vs SiAR; balance ET0−P SiAR (mm); "
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
-                "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS). "
+                "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
+                "demanda SiAR por sistema de explotación (estimación por cuota de capacidad). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1073,6 +1082,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "scenarios": scenarios,
             "crop_etc": crop_etc,
             "effective_precip": effective_precip,
+            "siar_by_system": siar_by_system,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

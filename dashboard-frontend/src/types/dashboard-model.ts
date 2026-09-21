@@ -670,6 +670,63 @@ export interface EffectivePrecipSnapshot {
   by_province?: EffectivePrecipScope[];
 }
 
+
+export interface SiarBySystemProvinceShare {
+  exploitation_system: string;
+  province_name: string;
+  capacity_share?: number | null;
+  capacity_hm3?: number | null;
+  stored_hm3?: number | null;
+  reservoir_count?: number;
+  allocated_demand_hm3_day?: number | null;
+  allocated_irrigated_ha?: number | null;
+  net_demand_mm?: number | null;
+  et0_mm?: number | null;
+  pe_mm?: number | null;
+  kc?: number | null;
+  siar_station_count?: number;
+}
+
+export interface SiarBySystemRow {
+  exploitation_system: string;
+  watershed_demarcation?: string;
+  is_estimate?: boolean;
+  provinces?: string[];
+  province_count?: number;
+  reservoir_count?: number;
+  stored_hm3?: number | null;
+  capacity_hm3?: number | null;
+  fill_pct?: number | null;
+  irrigated_ha_est?: number;
+  daily_demand_hm3?: number | null;
+  net_demand_mm?: number | null;
+  et0_mm?: number | null;
+  pe_mm?: number | null;
+  kc_w?: number | null;
+  siar_station_count?: number;
+  days_autonomy_est?: number | null;
+  risk_level?: string;
+  deficit_7d_hm3?: number | null;
+  deficit_30d_hm3?: number | null;
+}
+
+export interface SiarBySystemSnapshot {
+  available: boolean;
+  as_of_reservoir?: string | null;
+  as_of_siar?: string | null;
+  proxy?: string;
+  proxy_label_es?: string;
+  excluded_systems?: string[];
+  unit_demand?: string;
+  unit_depth?: string;
+  formula_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  method_es?: string;
+  by_system?: SiarBySystemRow[];
+  province_shares?: SiarBySystemProvinceShare[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -691,6 +748,7 @@ export interface IrrigationAutonomySnapshot {
   scenarios?: IrrigationScenariosSnapshot;
   crop_etc?: CropEtcSnapshot;
   effective_precip?: EffectivePrecipSnapshot;
+  siar_by_system?: SiarBySystemSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

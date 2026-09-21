@@ -378,6 +378,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       scenarios: { available: false, modes: [], horizons: [7, 14, 21], note_es: "", caveats_es: [], by_mode: {} },
       crop_etc: { available: false, as_of_siar: null, formula_es: "ETc (mm) = Kc × ET0_SiAR", note_es: "", caveats_es: [], kc_table: [], crops_meta: [], regional: null, by_province: [] },
       effective_precip: { available: false, as_of: null, unit: "mm", source_preferred: "siar_pepmon", formula_es: "", note_es: "", caveats_es: [], definition_es: "", regional: null, by_province: [] },
+      siar_by_system: { available: false, as_of_reservoir: null, as_of_siar: null, proxy: "capacity_share_within_province", proxy_label_es: "", excluded_systems: [], unit_demand: "hm3/day", unit_depth: "mm", formula_es: "", note_es: "", caveats_es: [], method_es: "", by_system: [], province_shares: [] },
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {
