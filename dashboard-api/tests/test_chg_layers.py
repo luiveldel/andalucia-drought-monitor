@@ -123,7 +123,7 @@ def test_snapshot_metadata_no_network():
     assert rec["wms"]["layers"].endswith("recintos_riego_pub")
     oliv = next(L for L in snap["layers"] if L["id"] == "dotacion_olivar")
     assert oliv["render"] == "geojson"
-    assert oliv["enabled_default"] is True
+    assert oliv["enabled_default"] is False
     assert "CHG" in snap["attribution"]
     assert len(snap["caveats_es"]) >= 3
 

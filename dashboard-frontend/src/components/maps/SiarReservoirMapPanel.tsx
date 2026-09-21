@@ -121,7 +121,7 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
   const [showSistemas, setShowSistemas] = useState(true);
   const [showRecintos, setShowRecintos] = useState(false);
   const [showBalsas, setShowBalsas] = useState(false);
-  const [showDotacionOlivar, setShowDotacionOlivar] = useState(true);
+  const [showDotacionOlivar, setShowDotacionOlivar] = useState(false);
   const [showSobreexplotadas, setShowSobreexplotadas] = useState(false);
   const [showVulnerables, setShowVulnerables] = useState(false);
   // Doñana REDIAM: ON by default — highlighted for Huelva–Sevilla

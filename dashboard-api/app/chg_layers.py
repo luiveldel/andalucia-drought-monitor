@@ -171,7 +171,7 @@ def _layer_catalog() -> list[dict[str, Any]]:
             "feature_count_hint": 50,
             "simplify": True,
             "max_features": None,
-            "enabled_default": True,
+            "enabled_default": False,
             "priority": 1,
             "note_es": (
                 "Dotaciones de riego de olivar (CHG): precipitación, ETP y "
