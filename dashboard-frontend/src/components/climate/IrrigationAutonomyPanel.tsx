@@ -69,7 +69,14 @@ function barColor(level: string): string {
   }
 }
 
-function Kpi(props: { label: string; value: string; hint?: string; tone?: string }) {
+function Kpi(props: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** Plain-language what this number means. */
+  explain?: string;
+  tone?: string;
+}) {
   return (
     <div
       className={`rounded-xl border p-3 ${
@@ -81,6 +88,9 @@ function Kpi(props: { label: string; value: string; hint?: string; tone?: string
         {props.value}
       </p>
       {props.hint ? <p className="mt-0.5 text-[11px] text-muted dark:text-muted-dark">{props.hint}</p> : null}
+      {props.explain ? (
+        <p className="mt-1.5 text-[11px] leading-snug text-muted dark:text-muted-dark">{props.explain}</p>
+      ) : null}
     </div>
   );
 }
@@ -142,7 +152,7 @@ export function IrrigationAutonomyPanel(props: {
     <section>
       <SectionHeader
         title="Autonomía de riego"
-        description={`Afinado · ${props.province} · embalses ${a.as_of_reservoir ?? "—"} · SiAR ${a.as_of_siar ?? "—"}`}
+        description="Cuántos días aguantaría el embalse usable si seguimos regando al ritmo que pide SiAR hoy. Es la señal principal de riesgo de corte."
       />
       <Card className="mt-3 border-amber-600/20 dark:border-amber-400/25">
         <CardContent className="space-y-4 pt-4">
@@ -152,6 +162,11 @@ export function IrrigationAutonomyPanel(props: {
             </p>
           ) : (
             <>
+              <p className="text-sm leading-relaxed text-muted dark:text-muted-dark">
+                Lectura para <span className="font-medium text-ink dark:text-ink-dark">{props.province}</span>
+                {a.as_of_reservoir ? ` · embalses ${a.as_of_reservoir}` : ""}
+                {a.as_of_siar ? ` · SiAR ${a.as_of_siar}` : ""}. Dividimos el agua en embalse (sin usos urbanos claros) entre la demanda diaria estimada. No es un derecho de riego ni un caudal concedido.
+              </p>
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full border px-2.5 py-1 text-xs font-medium ${levelClass(row.risk_level)}`}
@@ -159,7 +174,7 @@ export function IrrigationAutonomyPanel(props: {
                   {levelLabel(row.risk_level)}
                 </span>
                 <span className="text-xs text-muted dark:text-muted-dark">
-                  Orientativo: no descuenta abastecimiento urbano residual ni derechos de riego.
+                  Bandas: crítico &lt;21 d · alerta &lt;60 d · vigilancia &lt;90 d.
                 </span>
               </div>
 
@@ -180,6 +195,7 @@ export function IrrigationAutonomyPanel(props: {
                       .filter(Boolean)
                       .join(" · ")
                   }
+                  explain="Si no llueve más y la demanda no baja, aproximadamente cuántos días de riego quedan con el embalse usable actual."
                   tone={levelClass(row.risk_level)}
                 />
                 <Kpi
@@ -190,12 +206,19 @@ export function IrrigationAutonomyPanel(props: {
                       ? `Excl. urbano ${fmt(row.urban_excluded_hm3, " hm³", 0)}`
                       : `Llenado ${fmt(row.fill_pct, " %", 0)}`
                   }
+                  explain="Agua en embalse que contamos para riego, quitando sistemas claramente de abastecimiento urbano."
                 />
-                <Kpi label="Demanda día" value={fmt(row.daily_demand_hm3, " hm³", 2)} hint={`Neto ${fmt(row.net_demand_mm, " mm")}`} />
+                <Kpi
+                  label="Demanda día"
+                  value={fmt(row.daily_demand_hm3, " hm³", 2)}
+                  hint={`Neto ${fmt(row.net_demand_mm, " mm")}`}
+                  explain="Cuánta agua pediría hoy el regadío: Kc × (ET0 − Pe) × hectáreas, pasado a hm³."
+                />
                 <Kpi
                   label="Déficit 7d"
                   value={fmt(row.deficit_7d_hm3, " hm³", 1)}
                   hint={`30d ${fmt(row.deficit_30d_hm3, " hm³", 1)}`}
+                  explain="Suma de esa demanda de riego en la última semana (y el dato de 30 d). Cuánta agua teórica se ha “pedido” al sistema."
                 />
                 <Kpi
                   label="Burn rate"
@@ -205,11 +228,26 @@ export function IrrigationAutonomyPanel(props: {
                       ? `Ratio vs demanda ${fmt(burnRatio, "×", 2)}${burnRatio > 1 ? " (vacia más rápido)" : ""}`
                       : "Sin historial embalse"
                   }
+                  explain="A qué ritmo está bajando de verdad el embalse. Si el ratio &gt;1, se vacía más rápido de lo que explica solo la demanda SiAR."
                   tone={burnTone}
                 />
-                <Kpi label="ET0 SiAR" value={fmt(row.et0_mm, " mm")} hint={`Kc ${fmt(row.kc, "", 2)}`} />
-                <Kpi label="Regadío" value={fmt(row.irrigated_ha, " ha", 0)} hint="Junta 2023" />
-                <Kpi label="Estaciones SiAR" value={String(row.siar_station_count)} />
+                <Kpi
+                  label="ET0 SiAR"
+                  value={fmt(row.et0_mm, " mm")}
+                  hint={`Kc ${fmt(row.kc, "", 2)}`}
+                  explain="Evaporación potencial del día en estaciones de riego. El Kc adapta esa sed al cultivo dominante de la provincia."
+                />
+                <Kpi
+                  label="Regadío"
+                  value={fmt(row.irrigated_ha, " ha", 0)}
+                  hint="Junta 2023"
+                  explain="Hectáreas de riego que usamos para escalar la demanda. Cifra estática de tipología de regadío."
+                />
+                <Kpi
+                  label="Estaciones SiAR"
+                  value={String(row.siar_station_count)}
+                  explain="Cuántas estaciones de la red de riego del MAPA alimentan el ET0 de esta lectura."
+                />
               </div>
             </>
           )}
@@ -217,7 +255,7 @@ export function IrrigationAutonomyPanel(props: {
           {trend.length > 1 ? (
             <div>
               <p className="mb-2 text-xs font-medium text-muted dark:text-muted-dark">
-                Tendencia de autonomía (días · fechas con SiAR y embalse)
+                Tendencia de autonomía: si la línea baja, cada día quedan menos días de riego por delante.
               </p>
               <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -255,7 +293,7 @@ export function IrrigationAutonomyPanel(props: {
           {chart.length > 0 ? (
             <div>
               <p className="mb-2 text-xs font-medium text-muted dark:text-muted-dark">
-                Ranking provincial (días de autonomía)
+                Ranking provincial: a la izquierda, provincias con menos colchón de riego.
               </p>
               <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">

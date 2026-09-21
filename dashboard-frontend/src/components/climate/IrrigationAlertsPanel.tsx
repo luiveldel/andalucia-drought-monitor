@@ -25,6 +25,29 @@ function sevLabel(sev: string): string {
   }
 }
 
+function codeExplain(code: string): string {
+  switch (code) {
+    case "autonomy_critical":
+      return "Quedan muy pocos días de riego con el embalse usable actual.";
+    case "autonomy_warning":
+      return "La autonomía ya está en zona de planificar restricciones.";
+    case "autonomy_watch":
+      return "Todavía hay colchón, pero conviene seguir la evolución semanal.";
+    case "autonomy_drop_fast":
+      return "En pocos días se ha perdido mucho colchón: el vaciado se está acelerando.";
+    case "autonomy_drop":
+      return "Señal temprana: la autonomía empeora semana a semana.";
+    case "burn_above_demand":
+      return "El embalse baja más de lo que explica la demanda SiAR (otros usos o trasvases).";
+    case "until_critical_near":
+      return "La proyección dice que el umbral crítico está muy cerca en el calendario.";
+    case "until_critical_medium":
+      return "En unas semanas la autonomía proyectada podría entrar en crítico.";
+    default:
+      return "Aviso operativo ligado al riesgo de corte de riego.";
+  }
+}
+
 export function IrrigationAlertsPanel(props: {
   autonomy: IrrigationAutonomySnapshot;
   province?: string;
@@ -37,21 +60,24 @@ export function IrrigationAlertsPanel(props: {
 
   if (!props.autonomy.available) return null;
 
+  const th = props.autonomy.thresholds;
+
   return (
     <section>
       <SectionHeader
         title="Alertas tempranas de riego"
-        description={
-          props.autonomy.thresholds?.autonomy_critical_days != null
-            ? `Crítico <${props.autonomy.thresholds.autonomy_critical_days} d · alerta <${props.autonomy.thresholds.autonomy_warning_days} d · vigilancia <${props.autonomy.thresholds.autonomy_watch_days} d · caída rápida ≤${Math.abs(Number(props.autonomy.thresholds.drop_fast_7d))} d/7d.`
-            : "Umbrales de autonomía, caída semanal y vaciado vs demanda SiAR (piloto)."
-        }
+        description="Avisos cuando la autonomía es baja, cae rápido o el embalse se vacía más de lo esperado. Sirven para actuar antes del corte."
       />
       <Card className="mt-3 border-rose-600/15 dark:border-rose-400/20">
-        <CardContent className="space-y-2 pt-4">
+        <CardContent className="space-y-3 pt-4">
+          <p className="text-sm leading-relaxed text-muted dark:text-muted-dark">
+            {th?.autonomy_critical_days != null
+              ? `Miramos tres cosas: cuántos días de autonomía quedan (crítico <${th.autonomy_critical_days} d, alerta <${th.autonomy_warning_days} d, vigilancia <${th.autonomy_watch_days} d), si esa cifra cae en ~7 días (rápido ≤${Math.abs(Number(th.drop_fast_7d))} d), y si el vaciado real supera la demanda SiAR.`
+              : "Miramos autonomía baja, caídas semanales y vaciado más rápido que la demanda SiAR."}
+          </p>
           {alerts.length === 0 ? (
             <p className="text-sm text-muted dark:text-muted-dark">
-              Sin alertas activas para el ámbito seleccionado.
+              Sin alertas activas para el ámbito seleccionado: ningún umbral se ha cruzado.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -60,10 +86,13 @@ export function IrrigationAlertsPanel(props: {
                   key={`${a.code}-${a.province_name}`}
                   className={`rounded-lg border px-3 py-2 text-sm ${sevClass(a.severity)}`}
                 >
-                  <span className="mr-2 inline-block rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/10">
-                    {sevLabel(a.severity)} · {a.province_name}
-                  </span>
-                  <span className="leading-snug">{a.message_es}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-block rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-white/10">
+                      {sevLabel(a.severity)} · {a.province_name}
+                    </span>
+                  </div>
+                  <p className="mt-1 leading-snug">{a.message_es}</p>
+                  <p className="mt-1 text-[11px] leading-snug opacity-80">{codeExplain(a.code)}</p>
                 </li>
               ))}
             </ul>

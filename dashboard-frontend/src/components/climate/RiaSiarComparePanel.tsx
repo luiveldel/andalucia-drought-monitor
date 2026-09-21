@@ -36,7 +36,7 @@ export function RiaSiarComparePanel(props: {
   if (!cmp?.available) {
     return (
       <section>
-        <SectionHeader title="RIA vs SiAR" description={cmp?.note || "Sin comparación disponible."} />
+        <SectionHeader title="RIA vs SiAR" description="Compara el mismo día en dos redes: RIA (Andalucía) y SiAR (MAPA riego). Sirve para ver si ET0 o lluvia discrepan entre fuentes." />
       </section>
     );
   }
@@ -45,10 +45,15 @@ export function RiaSiarComparePanel(props: {
     <section>
       <SectionHeader
         title="RIA vs SiAR"
-        description={`${props.province} · ${cmp.as_of ?? "—"} · Δ = SiAR − RIA`}
+        description={`Compara el mismo día en RIA y SiAR · ${props.province} · ${cmp.as_of ?? "—"} · Δ = SiAR − RIA`}
       />
       <Card className="mt-3 border-teal-600/20 dark:border-teal-400/25">
         <CardContent className="space-y-3 pt-4">
+          <p className="text-sm leading-relaxed text-muted dark:text-muted-dark">
+            Dos redes midiendo el clima del mismo día. Si SiAR marca más ET0 que RIA (Δ positivo),
+            la demanda de riego estimada con SiAR será más exigente. Las diferencias grandes
+            invitan a mirar cobertura de estaciones, no a mezclar las series a ciegas.
+          </p>
           {!row ? (
             <p className="text-sm text-muted dark:text-muted-dark">Sin datos cruzados para {props.province}.</p>
           ) : (
