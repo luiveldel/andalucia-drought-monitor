@@ -15,6 +15,7 @@ import { IrrigationAlertsPanel } from "@/components/climate/IrrigationAlertsPane
 import { IrrigationProjectionPanel } from "@/components/climate/IrrigationProjectionPanel";
 import { RiaSiarComparePanel } from "@/components/climate/RiaSiarComparePanel";
 import { SiarWaterBalancePanel } from "@/components/climate/SiarWaterBalancePanel";
+import { HeatDemandCrossPanel } from "@/components/climate/HeatDemandCrossPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -169,6 +170,7 @@ export function DashboardPage() {
             <IrrigationProjectionPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
             <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <RiaSiarComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>

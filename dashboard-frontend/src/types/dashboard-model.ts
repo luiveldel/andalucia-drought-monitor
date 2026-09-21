@@ -456,6 +456,56 @@ export interface SiarWaterBalanceSnapshot {
   by_province?: SiarWaterBalanceProvince[];
 }
 
+
+export interface HeatDemandCrossDay {
+  date: string;
+  province_name?: string;
+  et0_mm?: number | null;
+  precip_mm?: number | null;
+  daily_demand_hm3?: number | null;
+  tmax_c?: number | null;
+  min_rh_pct?: number | null;
+  stations_heat?: number;
+  agri_risk?: number | null;
+  is_heat_day?: boolean;
+  heat_source?: string;
+  peak_index?: number | null;
+  irrigated_ha?: number;
+  kc?: number | null;
+  avg_tmax_c?: number | null;
+  provinces_in_heat?: number;
+}
+
+export interface HeatDemandCrossProvince {
+  province_name: string;
+  days_total?: number;
+  heat_days?: number;
+  peak_days_count?: number;
+  avg_demand_heat_hm3?: number | null;
+  avg_demand_other_hm3?: number | null;
+  avg_et0_heat_mm?: number | null;
+  avg_et0_other_mm?: number | null;
+  demand_lift_pct?: number | null;
+  latest_date?: string | null;
+  latest_is_heat?: boolean;
+  latest_demand_hm3?: number | null;
+  latest_tmax_c?: number | null;
+  latest_peak_index?: number | null;
+}
+
+export interface HeatDemandCrossSnapshot {
+  available: boolean;
+  as_of_heat?: string | null;
+  as_of_siar?: string | null;
+  lookback_days?: number;
+  note?: string;
+  definition_es?: string;
+  regional?: HeatDemandCrossProvince | null;
+  by_province?: HeatDemandCrossProvince[];
+  peak_days?: HeatDemandCrossDay[];
+  series?: HeatDemandCrossDay[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -472,6 +522,7 @@ export interface IrrigationAutonomySnapshot {
   projection?: IrrigationProjectionSnapshot;
   ria_siar_compare?: RiaSiarCompareSnapshot;
   water_balance?: SiarWaterBalanceSnapshot;
+  heat_demand_cross?: HeatDemandCrossSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

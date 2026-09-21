@@ -358,6 +358,7 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       projection: { available: false, horizon_days: 7, source: "", attribution: "", note: "", regional: null, by_province: [] },
       ria_siar_compare: { available: false, as_of: null, note: "", regional: null, by_province: [] },
       water_balance: { available: false, as_of: null, note: "", unit: "mm", regional: null, by_province: [] },
+      heat_demand_cross: { available: false, as_of_heat: null, as_of_siar: null, lookback_days: 30, note: "", regional: null, by_province: [], peak_days: [], series: [] },
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {

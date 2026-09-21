@@ -6,6 +6,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from collections import defaultdict
 from typing import Any
 
 from sqlalchemy import text
@@ -426,3 +427,274 @@ def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[s
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error comparando RIA/SiAR: {exc}"
         return empty
+
+
+def build_heat_demand_cross(
+    conn: Connection,
+    *,
+    as_of: str | None = None,
+    lookback_days: int = 30,
+) -> dict[str, Any]:
+    """Cross heat-stress days with SiAR irrigation demand (same province/date).
+
+    Peak days = heat stress (or SiAR Tmax>35 + low humidity) AND high SiAR demand.
+    """
+    from app.irrigation_autonomy import (
+        DEFAULT_KC,
+        IRRIGATED_HA_2023,
+        KC_BY_PROVINCE,
+        _daily_demand_hm3,
+        _f,
+    )
+
+    empty = {
+        "available": False,
+        "as_of_heat": None,
+        "as_of_siar": as_of,
+        "lookback_days": lookback_days,
+        "note": "Sin solape calor × demanda SiAR.",
+        "definition_es": (
+            "Cruza días de estrés térmico (Tmáx alta y aire seco) con la demanda de riego "
+            "estimada con SiAR. Un pico es un día caluroso en el que el cultivo también pide mucha agua: "
+            "ahí el embalse suele vaciarse más rápido."
+        ),
+        "regional": None,
+        "by_province": [],
+        "peak_days": [],
+        "series": [],
+    }
+    try:
+        heat_rows = _rows(
+            conn,
+            """
+            SELECT
+                observation_date::text AS d,
+                province_name,
+                stations_in_heat_stress::int AS stations_heat,
+                ROUND(avg_max_temp_c::numeric, 1)::float AS tmax_c,
+                ROUND(COALESCE(avg_min_humidity_pct, 0)::numeric, 1)::float AS min_rh_pct,
+                ROUND(COALESCE(agricultural_risk_index, 0)::numeric, 2)::float AS agri_risk
+            FROM marts.fact_heat_stress_days
+            WHERE observation_date >= COALESCE(CAST(:d AS date), CURRENT_DATE) - (:n * INTERVAL '1 day')
+              AND observation_date <= COALESCE(CAST(:d AS date), CURRENT_DATE)
+            ORDER BY observation_date ASC, province_name
+            """,
+            d=as_of,
+            n=lookback_days,
+        )
+        siar_rows = _rows(
+            conn,
+            """
+            SELECT
+                fecha::text AS d,
+                provincia_nombre AS province_name,
+                COUNT(*)::int AS station_count,
+                AVG(et0)::float AS et0_mm,
+                AVG(COALESCE(precip_efectiva, 0))::float AS pe_mm,
+                AVG(COALESCE(precipitacion, 0))::float AS precip_mm,
+                AVG(temp_max)::float AS tmax_c,
+                AVG(COALESCE(humedad_min, humedad_media))::float AS min_rh_pct
+            FROM raw.raw_siar_clima_diario
+            WHERE ccaa_codigo = 'AND'
+              AND provincia_nombre IS NOT NULL
+              AND et0 IS NOT NULL
+              AND fecha >= COALESCE(CAST(:d AS date), CURRENT_DATE) - (:n * INTERVAL '1 day')
+              AND fecha <= COALESCE(CAST(:d AS date), CURRENT_DATE)
+            GROUP BY fecha, provincia_nombre
+            ORDER BY fecha ASC, provincia_nombre
+            """,
+            d=as_of,
+            n=lookback_days,
+        )
+    except Exception as exc:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        empty["note"] = f"No se pudo cruzar calor y demanda: {exc}"
+        return empty
+
+    if not siar_rows:
+        return empty
+
+    heat_map: dict[tuple[str, str], dict[str, Any]] = {
+        (r["d"], r["province_name"]): r for r in heat_rows
+    }
+
+    # Build joint daily rows
+    joint: list[dict[str, Any]] = []
+    for s in siar_rows:
+        name = s["province_name"]
+        d = s["d"]
+        ha = int(IRRIGATED_HA_2023.get(name, 0))
+        kc = float(KC_BY_PROVINCE.get(name, DEFAULT_KC))
+        et0 = float(s.get("et0_mm") or 0)
+        pe = float(s.get("pe_mm") or 0)
+        demand = _daily_demand_hm3(et0, pe, ha, kc)
+        h = heat_map.get((d, name))
+        tmax_siar = s.get("tmax_c")
+        rh_siar = s.get("min_rh_pct")
+        # Heat from mart, or SiAR proxy (same spirit as fact_heat_stress_days)
+        from_mart = h is not None and int(h.get("stations_heat") or 0) > 0
+        tmax = float(h["tmax_c"]) if h and h.get("tmax_c") is not None else (
+            float(tmax_siar) if tmax_siar is not None else None
+        )
+        rh = float(h["min_rh_pct"]) if h and h.get("min_rh_pct") is not None else (
+            float(rh_siar) if rh_siar is not None else None
+        )
+        from_siar_proxy = (
+            tmax is not None and rh is not None and tmax > 35 and rh < 30 and not from_mart
+        )
+        is_heat = bool(from_mart or from_siar_proxy)
+        agri = float(h["agri_risk"]) if h and h.get("agri_risk") is not None else None
+        # Peak pressure: demand × heat intensity (tmax above 35, or agri risk)
+        heat_factor = 0.0
+        if is_heat and tmax is not None:
+            heat_factor = max(0.0, (tmax - 32.0) / 10.0)  # 35→0.3, 42→1.0
+        elif is_heat:
+            heat_factor = 0.5
+        peak_index = demand * (1.0 + heat_factor) if is_heat else demand * 0.25
+
+        joint.append(
+            {
+                "date": d,
+                "province_name": name,
+                "et0_mm": _f(et0, 2),
+                "precip_mm": _f(float(s.get("precip_mm") or 0), 2),
+                "daily_demand_hm3": _f(demand, 3),
+                "tmax_c": _f(tmax, 1) if tmax is not None else None,
+                "min_rh_pct": _f(rh, 1) if rh is not None else None,
+                "stations_heat": int(h["stations_heat"]) if h else 0,
+                "agri_risk": _f(agri, 2) if agri is not None else None,
+                "is_heat_day": is_heat,
+                "heat_source": "mart" if from_mart else ("siar_proxy" if from_siar_proxy else "none"),
+                "peak_index": _f(peak_index, 3),
+                "irrigated_ha": ha,
+                "kc": _f(kc, 2),
+            }
+        )
+
+    if not joint:
+        return empty
+
+    # Peak days: heat days in top tercile of demand among heat days, or top peak_index overall heat
+    heat_joint = [j for j in joint if j["is_heat_day"]]
+    peak_days: list[dict[str, Any]] = []
+    if heat_joint:
+        demands = sorted(float(j["daily_demand_hm3"] or 0) for j in heat_joint)
+        cut = demands[max(0, int(len(demands) * 0.66))] if demands else 0.0
+        candidates = [
+            j for j in heat_joint if float(j["daily_demand_hm3"] or 0) >= cut
+        ]
+        candidates.sort(key=lambda x: float(x["peak_index"] or 0), reverse=True)
+        peak_days = candidates[:12]
+
+    # By province
+    by_p: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for j in joint:
+        by_p[j["province_name"]].append(j)
+
+    by_province: list[dict[str, Any]] = []
+    for name, rows in sorted(by_p.items()):
+        heat_n = sum(1 for r in rows if r["is_heat_day"])
+        dem_heat = [
+            float(r["daily_demand_hm3"] or 0) for r in rows if r["is_heat_day"]
+        ]
+        dem_cool = [
+            float(r["daily_demand_hm3"] or 0) for r in rows if not r["is_heat_day"]
+        ]
+        et0_heat = [float(r["et0_mm"] or 0) for r in rows if r["is_heat_day"]]
+        et0_cool = [float(r["et0_mm"] or 0) for r in rows if not r["is_heat_day"]]
+        last = rows[-1]
+        peaks_p = [p for p in peak_days if p["province_name"] == name]
+        avg = lambda xs: (sum(xs) / len(xs)) if xs else None
+        by_province.append(
+            {
+                "province_name": name,
+                "days_total": len(rows),
+                "heat_days": heat_n,
+                "peak_days_count": len(peaks_p),
+                "avg_demand_heat_hm3": _f(avg(dem_heat), 3) if dem_heat else None,
+                "avg_demand_other_hm3": _f(avg(dem_cool), 3) if dem_cool else None,
+                "avg_et0_heat_mm": _f(avg(et0_heat), 2) if et0_heat else None,
+                "avg_et0_other_mm": _f(avg(et0_cool), 2) if et0_cool else None,
+                "demand_lift_pct": (
+                    _f(
+                        100.0
+                        * ((avg(dem_heat) or 0) - (avg(dem_cool) or 0))
+                        / (avg(dem_cool) or 1e-9),
+                        0,
+                    )
+                    if dem_heat and dem_cool and avg(dem_cool)
+                    else None
+                ),
+                "latest_date": last["date"],
+                "latest_is_heat": last["is_heat_day"],
+                "latest_demand_hm3": last["daily_demand_hm3"],
+                "latest_tmax_c": last["tmax_c"],
+                "latest_peak_index": last["peak_index"],
+            }
+        )
+
+    by_province.sort(
+        key=lambda x: (
+            -(x["peak_days_count"] or 0),
+            -(x["heat_days"] or 0),
+            -(float(x["avg_demand_heat_hm3"] or 0)),
+        )
+    )
+
+    # Regional daily series: mean tmax / sum demand / any heat
+    by_date: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for j in joint:
+        by_date[j["date"]].append(j)
+    series: list[dict[str, Any]] = []
+    for d in sorted(by_date.keys()):
+        rows = by_date[d]
+        dem = sum(float(r["daily_demand_hm3"] or 0) for r in rows)
+        tmx = [float(r["tmax_c"]) for r in rows if r.get("tmax_c") is not None]
+        heat_n = sum(1 for r in rows if r["is_heat_day"])
+        series.append(
+            {
+                "date": d,
+                "daily_demand_hm3": _f(dem, 2),
+                "avg_tmax_c": _f(sum(tmx) / len(tmx), 1) if tmx else None,
+                "provinces_in_heat": heat_n,
+                "peak_index": _f(
+                    sum(float(r["peak_index"] or 0) for r in rows), 2
+                ),
+            }
+        )
+
+    heat_days_reg = sum(1 for s in series if int(s.get("provinces_in_heat") or 0) > 0)
+    as_of_heat = max((r["d"] for r in heat_rows), default=None) if heat_rows else None
+    as_of_siar = max((r["d"] for r in siar_rows), default=as_of)
+
+    regional = {
+        "province_name": "Andalucía",
+        "days_total": len(series),
+        "heat_days": heat_days_reg,
+        "peak_days_count": len(peak_days),
+        "avg_demand_heat_hm3": None,
+        "avg_demand_other_hm3": None,
+        "demand_lift_pct": None,
+        "latest_date": series[-1]["date"] if series else None,
+        "latest_is_heat": bool(series and int(series[-1].get("provinces_in_heat") or 0) > 0),
+        "latest_demand_hm3": series[-1]["daily_demand_hm3"] if series else None,
+        "latest_tmax_c": series[-1].get("avg_tmax_c") if series else None,
+        "latest_peak_index": series[-1].get("peak_index") if series else None,
+    }
+
+    return {
+        "available": True,
+        "as_of_heat": as_of_heat,
+        "as_of_siar": as_of_siar,
+        "lookback_days": lookback_days,
+        "note": "",
+        "definition_es": empty["definition_es"],
+        "regional": regional,
+        "by_province": by_province,
+        "peak_days": peak_days,
+        "series": series,
+    }
+

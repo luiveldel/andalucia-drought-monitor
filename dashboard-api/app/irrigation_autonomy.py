@@ -133,6 +133,7 @@ def _empty() -> dict[str, Any]:
         "thresholds": thresholds_public(),
         "ria_siar_compare": {"available": False, "as_of": None, "note": "", "regional": None, "by_province": []},
         "water_balance": {"available": False, "as_of": None, "note": "", "unit": "mm", "definition_es": "Balance atmosférico SiAR: ET0 − precipitación. Positivo = la evaporación supera a la lluvia.", "regional": None, "by_province": []},
+        "heat_demand_cross": {"available": False, "as_of_heat": None, "as_of_siar": None, "lookback_days": 30, "note": "", "definition_es": "", "regional": None, "by_province": [], "peak_days": [], "series": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -938,7 +939,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 regional["trend_direction"] = "stable" if rd is not None else "unknown"
 
         # Lazy imports avoid circular dependency with irrigation_extras
-        from app.irrigation_extras import build_autonomy_projection, build_ria_siar_compare
+        from app.irrigation_extras import build_autonomy_projection, build_ria_siar_compare, build_heat_demand_cross
 
         projection = build_autonomy_projection(by_province, horizon_days=7)
         if regional and projection.get("regional"):
@@ -1004,6 +1005,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             deduped.append(a)
         alerts = deduped
         water_balance = _build_water_balance(siar_hist, as_of=as_of_siar)
+        heat_demand_cross = build_heat_demand_cross(conn, as_of=as_of_siar, lookback_days=30)
         compare = build_ria_siar_compare(conn, as_of=as_of_siar)
 
         return {
@@ -1028,6 +1030,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "projection": projection,
             "ria_siar_compare": compare,
             "water_balance": water_balance,
+            "heat_demand_cross": heat_demand_cross,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"
