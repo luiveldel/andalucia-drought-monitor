@@ -8,7 +8,7 @@ Native CRS is typically EPSG:25830; we request EPSG:4326 for Leaflet/GeoJSON.
 WFS 2.0 GetFeature currently returns HTTP 401 on this server; use WFS 1.1.0.
 
 recintos_riego_pub has ~350k polygons — served as WMS tiles for the map;
-sistemas / balsas / patrimonio / dotación olivar / zonas sobreexplotadas y vulnerables ship as simplified GeoJSON with disk cache.
+sistemas / balsas / patrimonio / dotación olivar / zonas sobreexplotadas y vulnerables / PES sequía+escasez / piezómetros ship as simplified GeoJSON with disk cache.
 """
 
 from __future__ import annotations
@@ -42,6 +42,22 @@ HTTP_RETRIES = int(os.environ.get("CHG_HTTP_RETRIES", "3"))
 
 # Overview simplify (~0.005° ≈ 500 m). Enough for dashboard map, not cadastral.
 DEFAULT_SIMPLIFY_TOL_DEG = float(os.environ.get("CHG_SIMPLIFY_TOL_DEG", "0.005"))
+# PES polygons are multi-MB raw; simplify more aggressively for map (~1–1.5 km).
+PES_SIMPLIFY_TOL_DEG = float(os.environ.get("CHG_PES_SIMPLIFY_TOL_DEG", "0.01"))
+
+# Official PES escenario / estado labels (Plan Especial de Sequías CHG).
+PES_ESCASEZ_ORDER = ("Normalidad", "Prealerta", "Alerta", "Emergencia")
+PES_SEQUIA_ORDER = ("Ausencia", "Sequía prolongada")
+
+# Name tokens that hint Huelva–Sevilla / Doñana context (UTE / zona names).
+DONANA_HUELVA_SEVILLA_TOKENS = (
+    "doñana", "donana", "marismas", "guadiamar", "huelva", "almonte",
+    "condado", "rocina", "cabezudos", "abalsadero", "sevilla",
+)
+
+PIEZOMETROS_WATER_NETWORKS_URL = (
+    "https://idechg.chguadalquivir.es/geoportal/"
+)
 
 ATTRIBUTION_ES = (
     "© Confederación Hidrográfica del Guadalquivir (CHG) — IDE-CHG / datos.gob.es"
@@ -200,21 +216,461 @@ def _layer_catalog() -> list[dict[str, Any]]:
                 "Geometrías densas: se simplifican para el mapa web."
             ),
         },
+        {
+            "id": "pes_estado_sequia",
+            "type_name": f"{CHG_WORKSPACE}:pes_estado_sequia",
+            "title_es": "Estado sequía PES",
+            "title_en": "PES drought status",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/pes_estado_sequia.geojson",
+            "feature_count_hint": 27,
+            "simplify": True,
+            "simplify_tol_deg": PES_SIMPLIFY_TOL_DEG,
+            "max_features": None,
+            "enabled_default": True,
+            "priority": 1,
+            "group": "pes",
+            "style_mode": "estado_sequia",
+            "note_es": (
+                "Estado de sequía prolongada del Plan Especial de Sequías (PES) CHG "
+                "por zona (~27). Escenarios oficiales; no es el índice ICRA ni REDIAM. "
+                "Prioridad contextual Huelva–Sevilla / Doñana (p. ej. Madre de las Marismas, "
+                "Guadiamar, Rivera de Huelva). Geometrías muy simplificadas."
+            ),
+            "datos_gob_es": (
+                "https://datos.gob.es/es/catalogo"
+            ),
+        },
+        {
+            "id": "pes_estado_escasez",
+            "type_name": f"{CHG_WORKSPACE}:pes_estado_escasez",
+            "title_es": "Escasez PES",
+            "title_en": "PES scarcity status",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/pes_estado_escasez.geojson",
+            "feature_count_hint": 25,
+            "simplify": True,
+            "simplify_tol_deg": PES_SIMPLIFY_TOL_DEG,
+            "max_features": None,
+            "enabled_default": True,
+            "priority": 1,
+            "group": "pes",
+            "style_mode": "escenario_escasez",
+            "note_es": (
+                "Escenarios de escasez del Plan Especial de Sequías (PES) CHG por UTE "
+                "(~25): Normalidad / Prealerta / Alerta / Emergencia. Accionable para "
+                "posibles restricciones de riego. Destaca UTEs del entorno Doñana / "
+                "Huelva–Sevilla (Madre de las Marismas, Guadiamar, Rivera de Huelva). "
+                "No es ICRA. Geometrías densas: se simplifican agresivamente (~0,01°)."
+            ),
+            "datos_gob_es": (
+                "https://datos.gob.es/es/catalogo"
+            ),
+        },
+        {
+            "id": "piezometros",
+            "type_name": f"{CHG_WORKSPACE}:piezometros",
+            "title_es": "Piezómetros",
+            "title_en": "Piezometers",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/piezometros.geojson",
+            "feature_count_hint": 334,
+            "simplify": False,
+            "max_features": None,
+            "enabled_default": True,
+            "priority": 1,
+            "group": "groundwater",
+            "style_mode": "point",
+            "highlight_provinces": ["Huelva", "Sevilla"],
+            "note_es": (
+                "Red de piezómetros CHG (~334 puntos): nivel freático / masas "
+                "subterráneas. Útil junto a Doñana y zonas sobreexplotadas en "
+                "Huelva–Sevilla. Series históricas: consultar el visor de redes "
+                "hídrica de la IDE-CHG (no se scrapean aquí)."
+            ),
+            "series_note_es": (
+                "Series históricas en el visor IDE-CHG (water-networks / geoportal); "
+                "este monitor solo muestra la ubicación y metadatos del punto."
+            ),
+            "series_url": PIEZOMETROS_WATER_NETWORKS_URL,
+        },
+        {
+            "id": "explotacion_saih",
+            "type_name": f"{CHG_WORKSPACE}:explotacion_saih",
+            "title_es": "Explotación SAIH",
+            "title_en": "SAIH exploitation points",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/explotacion_saih.geojson",
+            "feature_count_hint": 427,
+            "simplify": False,
+            "max_features": None,
+            "enabled_default": False,
+            "priority": 3,
+            "group": "saih",
+            "note_es": (
+                "Puntos de explotación SAIH (~427). Catálogo opcional; OFF por defecto."
+            ),
+        },
+        {
+            "id": "aforos",
+            "type_name": f"{CHG_WORKSPACE}:aforos",
+            "title_es": "Aforos",
+            "title_en": "Gauging stations",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/aforos.geojson",
+            "feature_count_hint": 68,
+            "simplify": False,
+            "max_features": None,
+            "enabled_default": False,
+            "priority": 3,
+            "group": "saih",
+            "note_es": (
+                "Estaciones de aforo CHG (~68). Catálogo opcional; OFF por defecto."
+            ),
+        },
     ]
 
 
 LAYER_BY_ID: dict[str, dict[str, Any]] = {L["id"]: L for L in _layer_catalog()}
 
 
+def normalize_escenario_escasez(raw: str | None) -> str:
+    """Map free-text escenario to canonical PES bucket (unit-tested)."""
+    s = (raw or "").strip()
+    if not s:
+        return "Desconocido"
+    low = s.casefold()
+    if "emerg" in low:
+        return "Emergencia"
+    if "alerta" in low and "pre" not in low:
+        return "Alerta"
+    if "prealerta" in low or "pre-alerta" in low or "pre alerta" in low:
+        return "Prealerta"
+    if "normal" in low:
+        return "Normalidad"
+    # Exact title-case match if already canonical
+    for canon in PES_ESCASEZ_ORDER:
+        if low == canon.casefold():
+            return canon
+    return s
+
+
+def normalize_estado_sequia(raw: str | None) -> str:
+    """Map free-text estado sequía to canonical bucket (unit-tested)."""
+    s = (raw or "").strip()
+    if not s:
+        return "Desconocido"
+    low = s.casefold()
+    if "prolong" in low or "sequ" in low:
+        return "Sequía prolongada"
+    if "ausen" in low or "normal" in low or "sin sequ" in low:
+        return "Ausencia"
+    for canon in PES_SEQUIA_ORDER:
+        if low == canon.casefold():
+            return canon
+    return s
+
+
+def worst_escenario(buckets: dict[str, int] | None) -> str | None:
+    """Return worst PES escasez escenario present (Emergencia > … > Normalidad)."""
+    if not buckets:
+        return None
+    present = [k for k, n in buckets.items() if n and k in PES_ESCASEZ_ORDER]
+    if not present:
+        # any non-zero unknown
+        for k, n in buckets.items():
+            if n:
+                return k
+        return None
+    return max(present, key=lambda k: PES_ESCASEZ_ORDER.index(k))
+
+
+def worst_estado_sequia(buckets: dict[str, int] | None) -> str | None:
+    if not buckets:
+        return None
+    present = [k for k, n in buckets.items() if n and k in PES_SEQUIA_ORDER]
+    if not present:
+        for k, n in buckets.items():
+            if n:
+                return k
+        return None
+    return max(present, key=lambda k: PES_SEQUIA_ORDER.index(k))
+
+
+def matches_donana_huelva_sevilla(name: str | None) -> bool:
+    """True if UTE/zona name suggests Doñana / Huelva–Sevilla context."""
+    low = (name or "").casefold()
+    if not low:
+        return False
+    # normalize accents for matching
+    trans = str.maketrans("áéíóúüñ", "aeiouun")
+    low_ascii = low.translate(trans)
+    for tok in DONANA_HUELVA_SEVILLA_TOKENS:
+        t = tok.translate(trans) if hasattr(tok, "translate") else tok
+        if t in low_ascii or tok in low:
+            return True
+    return False
+
+
+def bucket_counts(values: list[str], order: tuple[str, ...]) -> dict[str, int]:
+    """Count values; keep canonical order first, then extras."""
+    counts: dict[str, int] = {k: 0 for k in order}
+    for v in values:
+        if v in counts:
+            counts[v] += 1
+        else:
+            counts[v] = counts.get(v, 0) + 1
+    return counts
+
+
+def summarize_pes_features(
+    features: list[dict[str, Any]],
+    *,
+    kind: str,
+) -> dict[str, Any]:
+    """Build KPI summary from property-only (or full) GeoJSON features.
+
+    kind: "escasez" | "sequia"
+    """
+    rows: list[dict[str, Any]] = []
+    labels: list[str] = []
+    dates: list[str] = []
+    highlight: list[dict[str, Any]] = []
+
+    for feat in features:
+        props = feat.get("properties") if isinstance(feat, dict) else None
+        if not isinstance(props, dict):
+            continue
+        if kind == "escasez":
+            name = props.get("nom_ute") or props.get("cod_ute") or ""
+            bucket = normalize_escenario_escasez(props.get("escenario"))
+            idx = props.get("indicador")
+            code = props.get("cod_ute")
+            fecha = props.get("fecha")
+            row = {
+                "cod_ute": code,
+                "nom_ute": props.get("nom_ute"),
+                "escenario": bucket,
+                "escenario_raw": props.get("escenario"),
+                "indicador": idx,
+                "fecha": fecha,
+                "highlight_donana_huelva_sevilla": matches_donana_huelva_sevilla(str(name)),
+            }
+        else:
+            name = props.get("nom_szona") or props.get("cod_szona") or ""
+            bucket = normalize_estado_sequia(props.get("estado"))
+            idx = props.get("indice")
+            code = props.get("cod_szona")
+            fecha = props.get("fecha")
+            row = {
+                "cod_szona": code,
+                "nom_szona": props.get("nom_szona"),
+                "estado": bucket,
+                "estado_raw": props.get("estado"),
+                "indice": idx,
+                "fecha": fecha,
+                "highlight_donana_huelva_sevilla": matches_donana_huelva_sevilla(str(name)),
+            }
+        rows.append(row)
+        labels.append(bucket)
+        if fecha:
+            dates.append(str(fecha).rstrip("Z"))
+        if row["highlight_donana_huelva_sevilla"]:
+            highlight.append(row)
+
+    order = PES_ESCASEZ_ORDER if kind == "escasez" else PES_SEQUIA_ORDER
+    counts = bucket_counts(labels, order)
+    as_of = max(dates) if dates else None
+    if kind == "escasez":
+        worst = worst_escenario(counts)
+        worst_label_es = {
+            "Normalidad": "Normalidad",
+            "Prealerta": "Prealerta",
+            "Alerta": "Alerta",
+            "Emergencia": "Emergencia",
+        }.get(worst or "", worst)
+        headline = (
+            f"Escasez PES: {counts.get('Emergencia', 0)} emergencia, "
+            f"{counts.get('Alerta', 0)} alerta, {counts.get('Prealerta', 0)} prealerta, "
+            f"{counts.get('Normalidad', 0)} normalidad"
+            + (f" · peor: {worst_label_es}" if worst else "")
+        )
+        return {
+            "kind": "escasez",
+            "available": bool(rows),
+            "feature_count": len(rows),
+            "as_of": as_of,
+            "counts_by_escenario": counts,
+            "worst_escenario": worst,
+            "worst_label_es": worst_label_es,
+            "highlight_donana_huelva_sevilla": highlight,
+            "highlight_count": len(highlight),
+            "headline_es": headline,
+            "units_label_es": "UTE",
+            "caveat_es": (
+                "Escenarios del Plan Especial de Sequías (CHG). No es ICRA."
+            ),
+        }
+
+    worst = worst_estado_sequia(counts)
+    headline = (
+        f"Sequía PES: {counts.get('Sequía prolongada', 0)} prolongada, "
+        f"{counts.get('Ausencia', 0)} ausencia"
+        + (f" · peor: {worst}" if worst else "")
+    )
+    return {
+        "kind": "sequia",
+        "available": bool(rows),
+        "feature_count": len(rows),
+        "as_of": as_of,
+        "counts_by_estado": counts,
+        "worst_estado": worst,
+        "worst_label_es": worst,
+        "highlight_donana_huelva_sevilla": highlight,
+        "highlight_count": len(highlight),
+        "headline_es": headline,
+        "units_label_es": "zona",
+        "caveat_es": (
+            "Estado de sequía prolongada del PES (CHG). No es ICRA ni REDIAM."
+        ),
+    }
+
+
+def _pes_summary_cache_paths(cache_dir: str) -> tuple[Path, Path]:
+    return (
+        Path(cache_dir) / "pes_kpi_summary.json",
+        Path(cache_dir) / "pes_kpi_summary.meta.json",
+    )
+
+
+def fetch_pes_kpi_summary(
+    *,
+    force_refresh: bool = False,
+    cache_dir: str | None = None,
+    cache_ttl_s: int | None = None,
+) -> dict[str, Any]:
+    """Lightweight PES KPI (properties only, no geometries) with 24h disk+memory cache."""
+    cdir = cache_dir or DEFAULT_CACHE_DIR
+    ttl = DEFAULT_CACHE_TTL_S if cache_ttl_s is None else cache_ttl_s
+    mem_key = "pes_kpi_summary"
+    now = time.time()
+    if not force_refresh:
+        hit = _mem_cache.get(mem_key)
+        if hit and now - float(hit.get("_ts", 0)) < ttl:
+            payload = dict(hit["payload"])
+            payload["cache"] = "memory"
+            return payload
+
+    Path(cdir).mkdir(parents=True, exist_ok=True)
+    cache_file, meta_file = _pes_summary_cache_paths(cdir)
+    if not force_refresh and cache_file.is_file() and meta_file.is_file():
+        try:
+            m = json.loads(meta_file.read_text(encoding="utf-8"))
+            age = now - float(m.get("fetched_epoch", 0))
+            if age < ttl:
+                payload = json.loads(cache_file.read_text(encoding="utf-8"))
+                payload["cache"] = "disk"
+                payload["cache_age_s"] = int(age)
+                _mem_cache[mem_key] = {"_ts": now, "payload": payload}
+                return payload
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    fetched_at = datetime.now(timezone.utc).isoformat()
+    errors: list[str] = []
+    escasez_feats: list[dict[str, Any]] = []
+    sequia_feats: list[dict[str, Any]] = []
+
+    esc_url = build_wfs_getfeature_url(
+        f"{CHG_WORKSPACE}:pes_estado_escasez",
+        property_name="cod_ute,nom_ute,indicador,escenario,fecha",
+    )
+    seq_url = build_wfs_getfeature_url(
+        f"{CHG_WORKSPACE}:pes_estado_sequia",
+        property_name="cod_szona,nom_szona,indice,estado,fecha",
+    )
+    try:
+        esc_fc = _http_get_json(esc_url)
+        escasez_feats = list(esc_fc.get("features") or [])
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"escasez: {exc}")
+    try:
+        seq_fc = _http_get_json(seq_url)
+        sequia_feats = list(seq_fc.get("features") or [])
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"sequia: {exc}")
+
+    # Stale fallback if both failed
+    if not escasez_feats and not sequia_feats and cache_file.is_file():
+        try:
+            payload = json.loads(cache_file.read_text(encoding="utf-8"))
+            payload["cache"] = "stale_disk"
+            payload["error"] = "; ".join(errors) if errors else "fetch fallido"
+            _mem_cache[mem_key] = {"_ts": now, "payload": payload}
+            return payload
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    escasez = summarize_pes_features(escasez_feats, kind="escasez")
+    sequia = summarize_pes_features(sequia_feats, kind="sequia")
+    as_of = escasez.get("as_of") or sequia.get("as_of")
+    payload: dict[str, Any] = {
+        "available": bool(escasez.get("available") or sequia.get("available")),
+        "as_of": as_of,
+        "fetched_at": fetched_at,
+        "cache": "network",
+        "attribution": ATTRIBUTION_ES,
+        "provider": "CHG PES (Plan Especial de Sequías)",
+        "note_es": (
+            "Resumen regional del PES CHG (escasez por UTE y sequía por zona). "
+            "Solo propiedades vía WFS (sin geometrías). Destaca UTEs/zonas del "
+            "entorno Doñana / Huelva–Sevilla. No es ICRA."
+        ),
+        "caveat_es": (
+            "Escenarios del Plan Especial de Sequías; no sustituye resoluciones "
+            "oficiales de restricción ni el inventario ICRA."
+        ),
+        "escasez": escasez,
+        "sequia": sequia,
+        "source_urls": {"escasez": esc_url, "sequia": seq_url},
+        "error": "; ".join(errors) if errors else None,
+    }
+    try:
+        cache_file.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        meta_file.write_text(
+            json.dumps(
+                {
+                    "fetched_at": fetched_at,
+                    "fetched_epoch": now,
+                    "as_of": as_of,
+                    "escasez_n": escasez.get("feature_count"),
+                    "sequia_n": sequia.get("feature_count"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+    _mem_cache[mem_key] = {"_ts": now, "payload": payload}
+    return payload
+
+
 def caveats_es() -> list[str]:
     return [
         "Capas públicas de la IDE-CHG (GeoServer). No se consultan portales privados de comunidades de regantes.",
         "CRS nativo habitual EPSG:25830; el API reproyecta a EPSG:4326 vía parámetro srsName del WFS.",
-        "Las geometrías vectoriales se simplifican para el mapa web (tolerancia ~0,005° ≈ 500 m): no usar para catastro ni deslindes.",
+        "Las geometrías vectoriales se simplifican para el mapa web (tolerancia ~0,005° ≈ 500 m; PES ~0,01°): no usar para catastro ni deslindes.",
         "recintos_riego_pub tiene cientos de miles de polígonos; la vista cartográfica usa WMS. Una descarga GeoJSON completa saturaría el navegador.",
+        "PES sequía/escasez: escenarios oficiales del Plan Especial de Sequías CHG. No es ICRA ni la zonificación REDIAM Doñana.",
+        "Piezómetros: solo ubicación/metadatos; las series históricas están en el visor IDE-CHG (no se scrapean).",
         "WFS 2.0 GetFeature puede devolver 401 en este servidor; el cliente usa WFS 1.1.0.",
         "La actualización CHG es aproximadamente mensual; la caché local evita martillar el GeoServer en cada carga del dashboard.",
-        "Atribución: Confederación Hidrográfica del Guadalquivir (CHG).",
+        "Atribución: Confederación Hidrográfica del Guadalquivir (CHG) / datos.gob.es.",
     ]
 
 
@@ -227,6 +683,7 @@ def build_wfs_getfeature_url(
     srs_name: str = DEFAULT_SRS,
     max_features: int | None = None,
     bbox: str | None = None,
+    property_name: str | None = None,
 ) -> str:
     """Build a WFS 1.1.0 GetFeature URL (pure function — unit-tested)."""
     params: dict[str, str] = {
@@ -241,6 +698,8 @@ def build_wfs_getfeature_url(
         params["maxFeatures"] = str(int(max_features))
     if bbox:
         params["bbox"] = bbox
+    if property_name:
+        params["propertyName"] = property_name
     return f"{base.rstrip('?')}?{urllib.parse.urlencode(params)}"
 
 
@@ -435,7 +894,12 @@ def fetch_layer_geojson(
 
     cdir = cache_dir or DEFAULT_CACHE_DIR
     ttl = DEFAULT_CACHE_TTL_S if cache_ttl_s is None else cache_ttl_s
-    tol = DEFAULT_SIMPLIFY_TOL_DEG if simplify_tol is None else simplify_tol
+    if simplify_tol is not None:
+        tol = simplify_tol
+    elif meta.get("simplify_tol_deg") is not None:
+        tol = float(meta["simplify_tol_deg"])
+    else:
+        tol = DEFAULT_SIMPLIFY_TOL_DEG
     # Sample/bounded requests skip shared disk cache (different payload).
     use_disk = bbox is None and max_features is None
     mf = max_features if max_features is not None else meta.get("max_features")
@@ -640,11 +1104,17 @@ def fetch_layer_geojson(
     return payload
 
 
-def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[str, Any]:
+def build_chg_layers_snapshot(
+    *,
+    include_inline_geojson: bool = False,
+    include_pes_kpi: bool = True,
+) -> dict[str, Any]:
     """Dashboard metadata block under irrigation_autonomy.chg_layers.
 
-    By default does NOT fetch GeoServer (avoids hammering / bloating /api/dashboard).
-    Map UI loads GeoJSON/WMS lazily via dedicated endpoints.
+    By default does NOT fetch full GeoJSON (avoids hammering / bloating
+    /api/dashboard). Map UI loads GeoJSON/WMS lazily via dedicated endpoints.
+    Optionally attaches a lightweight PES KPI (properties-only WFS, ~5 KB,
+    cached 24 h) for Resumen / Risk cards.
     """
     layers_out: list[dict[str, Any]] = []
     for L in _layer_catalog():
@@ -659,10 +1129,20 @@ def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[s
             "enabled_default": L.get("enabled_default", False),
             "priority": L.get("priority", 9),
             "note_es": L.get("note_es"),
+            "group": L.get("group"),
+            "style_mode": L.get("style_mode"),
             "wms": build_wms_leaflet_config(L["id"]) if L["render"] == "wms" else None,
         }
         if L.get("datos_gob_es"):
             entry["datos_gob_es"] = L["datos_gob_es"]
+        if L.get("highlight_provinces"):
+            entry["highlight_provinces"] = L["highlight_provinces"]
+        if L.get("series_url"):
+            entry["series_url"] = L["series_url"]
+        if L.get("series_note_es"):
+            entry["series_note_es"] = L["series_note_es"]
+        if L.get("simplify_tol_deg") is not None:
+            entry["simplify_tol_deg"] = L["simplify_tol_deg"]
         if include_inline_geojson and L["render"] == "geojson" and L["id"] in (
             "sistemas_explotacion",
             "patrimonio_zonas_regables",
@@ -679,6 +1159,21 @@ def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[s
                 entry["error"] = str(exc)
         layers_out.append(entry)
 
+    pes_kpi: dict[str, Any] | None = None
+    if include_pes_kpi:
+        try:
+            pes_kpi = fetch_pes_kpi_summary()
+        except Exception as exc:  # noqa: BLE001 — never break catalog
+            pes_kpi = {
+                "available": False,
+                "error": str(exc),
+                "escasez": {"available": False, "counts_by_escenario": {}},
+                "sequia": {"available": False, "counts_by_estado": {}},
+            }
+
+    as_of = (pes_kpi or {}).get("as_of")
+    fetched_at = (pes_kpi or {}).get("fetched_at")
+
     return {
         "available": True,
         "provider": "CHG IDE-CHG GeoServer",
@@ -691,16 +1186,19 @@ def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[s
         "wfs_version": WFS_VERSION,
         "cache_ttl_s": DEFAULT_CACHE_TTL_S,
         "simplify_tol_deg": DEFAULT_SIMPLIFY_TOL_DEG,
-        "as_of": None,
-        "fetched_at": None,
+        "pes_simplify_tol_deg": PES_SIMPLIFY_TOL_DEG,
+        "as_of": as_of,
+        "fetched_at": fetched_at,
         "lazy": True,
         "note_es": (
             "Capas abiertas de la Confederación Hidrográfica del Guadalquivir "
             "(sistemas, recintos WMS, balsas, dotación olivar, zonas "
-            "sobreexplotadas/vulnerables). El dashboard solo expone metadatos; "
+            "sobreexplotadas/vulnerables, PES sequía/escasez, piezómetros). "
+            "El dashboard expone metadatos + KPI PES ligero (sin geometrías); "
             "el mapa carga WMS/GeoJSON bajo demanda con caché en disco "
-            "(TTL 24 h) para no martillar el GeoServer."
+            "(TTL 24 h). Escenarios PES ≠ ICRA."
         ),
         "caveats_es": caveats_es(),
         "layers": layers_out,
+        "pes_kpi": pes_kpi,
     }

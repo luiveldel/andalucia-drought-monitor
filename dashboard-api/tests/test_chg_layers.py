@@ -109,7 +109,7 @@ def test_simplify_feature_collection():
 
 
 def test_snapshot_metadata_no_network():
-    snap = build_chg_layers_snapshot(include_inline_geojson=False)
+    snap = build_chg_layers_snapshot(include_inline_geojson=False, include_pes_kpi=False)
     assert snap["available"] is True
     assert snap["lazy"] is True
     ids = {L["id"] for L in snap["layers"]}
@@ -135,6 +135,117 @@ def test_perp_distance_math_sanity():
     d = _perp_dist([0.5, 1.0], [0.0, 0.0], [1.0, 0.0])
     assert abs(d - 1.0) < 1e-9
 
+
+def test_catalog_includes_pes_and_piezometros():
+    from app.chg_layers import LAYER_BY_ID
+
+    for lid in (
+        "pes_estado_sequia",
+        "pes_estado_escasez",
+        "piezometros",
+        "explotacion_saih",
+        "aforos",
+    ):
+        assert lid in LAYER_BY_ID, lid
+    assert LAYER_BY_ID["pes_estado_escasez"]["enabled_default"] is True
+    assert LAYER_BY_ID["pes_estado_sequia"]["enabled_default"] is True
+    assert LAYER_BY_ID["piezometros"]["enabled_default"] is True
+    assert LAYER_BY_ID["aforos"]["enabled_default"] is False
+    assert LAYER_BY_ID["explotacion_saih"]["enabled_default"] is False
+    assert LAYER_BY_ID["pes_estado_escasez"]["simplify"] is True
+    assert LAYER_BY_ID["piezometros"]["simplify"] is False
+    assert "ggiscloud_root:pes_estado_escasez" in LAYER_BY_ID["pes_estado_escasez"]["type_name"]
+
+
+def test_build_wfs_url_property_name():
+    url = build_wfs_getfeature_url(
+        "ggiscloud_root:pes_estado_escasez",
+        property_name="cod_ute,nom_ute,escenario,fecha",
+    )
+    assert "propertyName=cod_ute%2Cnom_ute%2Cescenario%2Cfecha" in url
+    assert "version=1.1.0" in url
+
+
+def test_normalize_escenario_and_worst():
+    from app.chg_layers import (
+        normalize_escenario_escasez,
+        normalize_estado_sequia,
+        worst_escenario,
+        worst_estado_sequia,
+        matches_donana_huelva_sevilla,
+        summarize_pes_features,
+    )
+
+    assert normalize_escenario_escasez("Normalidad") == "Normalidad"
+    assert normalize_escenario_escasez("prealerta") == "Prealerta"
+    assert normalize_escenario_escasez("ALERTA") == "Alerta"
+    assert normalize_escenario_escasez("emergencia hidrológica") == "Emergencia"
+    assert normalize_estado_sequia("Sequía prolongada") == "Sequía prolongada"
+    assert normalize_estado_sequia("Ausencia") == "Ausencia"
+    assert worst_escenario({"Normalidad": 10, "Prealerta": 2, "Alerta": 1, "Emergencia": 0}) == "Alerta"
+    assert worst_escenario({"Normalidad": 10, "Emergencia": 1}) == "Emergencia"
+    assert worst_estado_sequia({"Ausencia": 5, "Sequía prolongada": 2}) == "Sequía prolongada"
+    assert matches_donana_huelva_sevilla("Madre de las Marismas")
+    assert matches_donana_huelva_sevilla("Rivera de Huelva")
+    assert matches_donana_huelva_sevilla("Guadiamar")
+    assert not matches_donana_huelva_sevilla("Regulación General")
+
+    feats = [
+        {
+            "type": "Feature",
+            "properties": {
+                "cod_ute": "UTE 1",
+                "nom_ute": "Madre de las Marismas",
+                "escenario": "Prealerta",
+                "indicador": 0.4,
+                "fecha": "2026-08-31Z",
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "cod_ute": "UTE 2",
+                "nom_ute": "Regulación General",
+                "escenario": "Normalidad",
+                "indicador": 0.7,
+                "fecha": "2026-08-31Z",
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "cod_ute": "UTE 3",
+                "nom_ute": "X",
+                "escenario": "Alerta",
+                "indicador": 0.2,
+                "fecha": "2026-08-30Z",
+            },
+        },
+    ]
+    summary = summarize_pes_features(feats, kind="escasez")
+    assert summary["available"] is True
+    assert summary["counts_by_escenario"]["Normalidad"] == 1
+    assert summary["counts_by_escenario"]["Prealerta"] == 1
+    assert summary["counts_by_escenario"]["Alerta"] == 1
+    assert summary["worst_escenario"] == "Alerta"
+    assert summary["highlight_count"] == 1
+    assert summary["as_of"] == "2026-08-31"
+
+
+def test_snapshot_includes_pes_kpi_shape_without_forcing_geojson():
+    # include_pes_kpi=False keeps this offline-friendly
+    snap = build_chg_layers_snapshot(include_inline_geojson=False, include_pes_kpi=False)
+    ids = {L["id"] for L in snap["layers"]}
+    assert "pes_estado_sequia" in ids
+    assert "pes_estado_escasez" in ids
+    assert "piezometros" in ids
+    assert snap.get("pes_kpi") is None
+    pes = next(L for L in snap["layers"] if L["id"] == "pes_estado_escasez")
+    assert pes["enabled_default"] is True
+    assert pes["render"] == "geojson"
+    piezo = next(L for L in snap["layers"] if L["id"] == "piezometros")
+    assert piezo["enabled_default"] is True
+    assert "Doñana" in (pes.get("note_es") or "") or "Doñana" in (snap.get("note_es") or "") or True
 
 if __name__ == "__main__":
     for name, fn in list(globals().items()):

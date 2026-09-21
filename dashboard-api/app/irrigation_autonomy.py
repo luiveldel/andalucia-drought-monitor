@@ -180,6 +180,15 @@ def _empty() -> dict[str, Any]:
             "note_es": "",
             "caveats_es": [],
             "layers": [],
+            "pes_kpi": {
+                "available": False,
+                "as_of": None,
+                "fetched_at": None,
+                "note_es": "",
+                "caveat_es": "",
+                "escasez": {"available": False, "counts_by_escenario": {}},
+                "sequia": {"available": False, "counts_by_estado": {}},
+            },
         },
         "open_layers": {
             "available": False,
@@ -1212,7 +1221,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); capas abiertas CHG (sistemas, recintos WMS, dotación olivar, zonas sobreexplotadas/vulnerables) + REDIAM Doñana WMS e ICRA archivo; olas de calor intradía (SiAR horario o proxy Open-Meteo). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); capas abiertas CHG (sistemas, recintos WMS, dotación olivar, zonas sobreexplotadas/vulnerables, PES sequía/escasez, piezómetros) + REDIAM Doñana WMS e ICRA archivo; olas de calor intradía (SiAR horario o proxy Open-Meteo). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,

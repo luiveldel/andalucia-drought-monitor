@@ -79,6 +79,23 @@ function systemColor(name: string | null | undefined): string {
   return SYSTEM_PALETTE[h % SYSTEM_PALETTE.length];
 }
 
+
+function escenarioColor(esc: string | null | undefined): string {
+  const s = (esc || "").toLowerCase();
+  if (s.includes("emerg")) return "#e11d48";
+  if (s.includes("alerta") && !s.includes("pre")) return "#f59e0b";
+  if (s.includes("prealerta") || s.includes("pre-alerta")) return "#eab308";
+  if (s.includes("normal")) return "#10b981";
+  return "#94a3b8";
+}
+
+function estadoSequiaColor(estado: string | null | undefined): string {
+  const s = (estado || "").toLowerCase();
+  if (s.includes("prolong") || s.includes("sequ")) return "#dc2626";
+  if (s.includes("ausen")) return "#34d399";
+  return "#94a3b8";
+}
+
 function fmtKm(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return `${Number(n).toFixed(1)} km`;
@@ -109,11 +126,19 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
   const [showVulnerables, setShowVulnerables] = useState(false);
   // Doñana REDIAM: ON by default — highlighted for Huelva–Sevilla
   const [showDonana, setShowDonana] = useState(true);
+  // PES + piezómetros: ON by default (escasez actionable; piezos near Doñana)
+  const [showPesSequia, setShowPesSequia] = useState(true);
+  const [showPesEscasez, setShowPesEscasez] = useState(true);
+  const [showPiezometros, setShowPiezometros] = useState(true);
+  const [filterPiezoProv, setFilterPiezoProv] = useState<string>("");
   const [sistemasFc, setSistemasFc] = useState<FeatureCollection | null>(null);
   const [balsasFc, setBalsasFc] = useState<FeatureCollection | null>(null);
   const [dotacionFc, setDotacionFc] = useState<FeatureCollection | null>(null);
   const [sobreFc, setSobreFc] = useState<FeatureCollection | null>(null);
   const [vulnFc, setVulnFc] = useState<FeatureCollection | null>(null);
+  const [pesSequiaFc, setPesSequiaFc] = useState<FeatureCollection | null>(null);
+  const [pesEscasezFc, setPesEscasezFc] = useState<FeatureCollection | null>(null);
+  const [piezoFc, setPiezoFc] = useState<FeatureCollection | null>(null);
   const [chgStatus, setChgStatus] = useState<string>("");
   const [chgFetchedAt, setChgFetchedAt] = useState<string | null>(null);
 
@@ -236,6 +261,68 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
       alive = false;
     };
   }, [showVulnerables]);
+
+  useEffect(() => {
+    if (!showPesSequia) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("pes_estado_sequia");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setPesSequiaFc(payload.feature_collection);
+        setChgFetchedAt(payload.fetched_at ?? null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showPesSequia]);
+
+  useEffect(() => {
+    if (!showPesEscasez) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("pes_estado_escasez");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setPesEscasezFc(payload.feature_collection);
+        setChgFetchedAt(payload.fetched_at ?? null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showPesEscasez]);
+
+  useEffect(() => {
+    if (!showPiezometros) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("piezometros");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setPiezoFc(payload.feature_collection);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showPiezometros]);
+
+  const piezoMeta = useMemo(
+    () => (chg?.layers ?? []).find((l) => l.id === "piezometros"),
+    [chg],
+  );
+
+  const piezoFiltered = useMemo(() => {
+    if (!piezoFc) return null;
+    if (!filterPiezoProv) return piezoFc;
+    const feats = (piezoFc.features ?? []).filter((f) => {
+      const prov = String((f.properties as { nom_prov?: string } | null)?.nom_prov || "");
+      return prov.toLowerCase() === filterPiezoProv.toLowerCase();
+    });
+    return { type: "FeatureCollection" as const, features: feats };
+  }, [piezoFc, filterPiezoProv]);
 
   const systems = useMemo(() => {
     const names = new Set<string>();
@@ -439,8 +526,74 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
                       />
                       {es ? "Balsas" : "Ponds"}
                     </label>
+                    <label className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-ink-dark">
+                      <input
+                        type="checkbox"
+                        checked={showPesEscasez}
+                        onChange={(e) => setShowPesEscasez(e.target.checked)}
+                      />
+                      {es ? "Escasez PES" : "PES scarcity"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-ink-dark">
+                      <input
+                        type="checkbox"
+                        checked={showPesSequia}
+                        onChange={(e) => setShowPesSequia(e.target.checked)}
+                      />
+                      {es ? "Estado sequía PES" : "PES drought status"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 font-medium text-ink dark:text-ink-dark">
+                      <input
+                        type="checkbox"
+                        checked={showPiezometros}
+                        onChange={(e) => setShowPiezometros(e.target.checked)}
+                      />
+                      {es ? "Piezómetros" : "Piezometers"}
+                    </label>
                   </div>
+                  {showPiezometros ? (
+                    <label className="block text-[11px] text-muted dark:text-muted-dark">
+                      {es ? "Filtrar piezómetros por provincia" : "Filter piezometers by province"}
+                      <select
+                        className="ml-2 rounded-md border border-black/10 bg-white px-2 py-0.5 text-xs dark:border-white/10 dark:bg-white/5"
+                        value={filterPiezoProv}
+                        onChange={(e) => setFilterPiezoProv(e.target.value)}
+                      >
+                        <option value="">{es ? "Todas" : "All"}</option>
+                        <option value="Huelva">Huelva</option>
+                        <option value="Sevilla">Sevilla</option>
+                        <option value="Córdoba">Córdoba</option>
+                        <option value="Jaén">Jaén</option>
+                        <option value="Granada">Granada</option>
+                        <option value="Málaga">Málaga</option>
+                        <option value="Cádiz">Cádiz</option>
+                        <option value="Almería">Almería</option>
+                      </select>
+                      <span className="ml-2 opacity-80">
+                        {es
+                          ? "(prioridad Doñana / Huelva–Sevilla)"
+                          : "(Doñana / Huelva–Seville priority)"}
+                      </span>
+                    </label>
+                  ) : null}
                   <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
+                    {es
+                      ? "PES = Plan Especial de Sequías CHG (no es ICRA). Piezómetros: series en visor IDE-CHG."
+                      : "PES = CHG Special Drought Plan (not ICRA). Piezometers: series on IDE-CHG viewer."}
+                    {piezoMeta?.series_url ? (
+                      <>
+                        {" "}
+                        <a
+                          className="text-terracotta underline-offset-2 hover:underline dark:text-terracotta-dark"
+                          href={piezoMeta.series_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          IDE-CHG
+                        </a>
+                        .
+                      </>
+                    ) : null}{" "}
                     {chg?.note_es ||
                       (es
                         ? "Fuente: IDE-CHG / datos.gob.es. Geometrías simplificadas (~500 m)."
@@ -501,14 +654,20 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
                 showBalsas ||
                 showDotacionOlivar ||
                 showSobreexplotadas ||
-                showVulnerables
+                showVulnerables ||
+                showPesSequia ||
+                showPesEscasez ||
+                showPiezometros
                   ? `${ATTR}${showDonana ? ` | ${REDIAM_ATTR}` : ""}${
                       showRecintos ||
                       showSistemas ||
                       showBalsas ||
                       showDotacionOlivar ||
                       showSobreexplotadas ||
-                      showVulnerables
+                      showVulnerables ||
+                      showPesSequia ||
+                      showPesEscasez ||
+                      showPiezometros
                         ? ` | ${CHG_ATTR}`
                         : ""
                     }`
@@ -657,6 +816,123 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
                 }}
               />
             ) : null}
+            {showPesSequia && pesSequiaFc ? (
+              <GeoJSON
+                key={`pes-seq-${pesSequiaFc.features?.length ?? 0}`}
+                data={pesSequiaFc}
+                style={(feat) => {
+                  const estado =
+                    (feat?.properties as { estado?: string } | null)?.estado || "";
+                  const col = estadoSequiaColor(estado);
+                  return {
+                    color: col,
+                    weight: 1.2,
+                    fillColor: col,
+                    fillOpacity: 0.28,
+                  };
+                }}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as {
+                    nom_szona?: string;
+                    estado?: string;
+                    indice?: number;
+                    fecha?: string;
+                  };
+                  layer.bindTooltip(
+                    `${p.nom_szona || "Zona"}: ${p.estado || "—"}${
+                      p.indice != null ? ` (índice ${p.indice})` : ""
+                    }${p.fecha ? ` · ${String(p.fecha).replace(/Z$/, "")}` : ""}`,
+                  );
+                }}
+              />
+            ) : null}
+            {showPesEscasez && pesEscasezFc ? (
+              <GeoJSON
+                key={`pes-esc-${pesEscasezFc.features?.length ?? 0}`}
+                data={pesEscasezFc}
+                style={(feat) => {
+                  const esc =
+                    (feat?.properties as { escenario?: string } | null)?.escenario || "";
+                  const col = escenarioColor(esc);
+                  return {
+                    color: col,
+                    weight: 1.5,
+                    fillColor: col,
+                    fillOpacity: 0.32,
+                  };
+                }}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as {
+                    nom_ute?: string;
+                    escenario?: string;
+                    indicador?: number;
+                    fecha?: string;
+                  };
+                  layer.bindTooltip(
+                    `${p.nom_ute || "UTE"}: ${p.escenario || "—"}${
+                      p.indicador != null ? ` (ind. ${p.indicador})` : ""
+                    }${p.fecha ? ` · ${String(p.fecha).replace(/Z$/, "")}` : ""}`,
+                  );
+                }}
+              />
+            ) : null}
+            {showPiezometros && piezoFiltered
+              ? (piezoFiltered.features ?? []).map((feat, idx) => {
+                  const g = feat.geometry as {
+                    type?: string;
+                    coordinates?: number[];
+                  } | null;
+                  if (!g || g.type !== "Point" || !g.coordinates || g.coordinates.length < 2) {
+                    return null;
+                  }
+                  const [lon, lat] = g.coordinates;
+                  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                  const pr = (feat.properties || {}) as {
+                    nom_estsub?: string;
+                    massub?: string;
+                    nom_muni?: string;
+                    nom_prov?: string;
+                    cota_estsub?: number;
+                    profundidad?: string | number;
+                    estado?: string;
+                    cod_estsub?: string;
+                  };
+                  const key = pr.cod_estsub || `piezo-${idx}`;
+                  return (
+                    <CircleMarker
+                      key={key}
+                      center={[lat, lon]}
+                      radius={3.5}
+                      pathOptions={{
+                        color: "#0f766e",
+                        weight: 1,
+                        fillColor: "#14b8a6",
+                        fillOpacity: 0.85,
+                      }}
+                    >
+                      <Tooltip direction="top" offset={[0, -2]}>
+                        {pr.nom_estsub || pr.cod_estsub || "Piezómetro"}
+                      </Tooltip>
+                      <Popup>
+                        <div className="max-w-xs text-sm">
+                          <strong>{pr.nom_estsub || pr.cod_estsub || "Piezómetro"}</strong>
+                          <div>
+                            {pr.nom_muni || "—"}
+                            {pr.nom_prov ? ` (${pr.nom_prov})` : ""}
+                          </div>
+                          {pr.massub ? <div className="text-xs opacity-80">{pr.massub}</div> : null}
+                          <div className="text-xs opacity-80">
+                            {pr.cota_estsub != null ? `Cota ${pr.cota_estsub} m` : ""}
+                            {pr.profundidad != null && pr.profundidad !== ""
+                              ? ` · prof. ${pr.profundidad} m`
+                              : ""}
+                          </div>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })
+              : null}
             {reservoirPts.map((r) => (
               <CircleMarker
                 key={`r-${r.reservoir_code}`}

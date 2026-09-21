@@ -17,6 +17,7 @@ import { RiaSiarComparePanel } from "@/components/climate/RiaSiarComparePanel";
 import { SiarWaterBalancePanel } from "@/components/climate/SiarWaterBalancePanel";
 import { HeatDemandCrossPanel } from "@/components/climate/HeatDemandCrossPanel";
 import { CutRiskPanel } from "@/components/climate/CutRiskPanel";
+import { PesEscasezKpiPanel } from "@/components/climate/PesEscasezKpiPanel";
 import { IrrigationScenariosPanel } from "@/components/climate/IrrigationScenariosPanel";
 import { CropEtcPanel } from "@/components/climate/CropEtcPanel";
 import { EffectivePrecipPanel } from "@/components/climate/EffectivePrecipPanel";
@@ -127,6 +128,7 @@ export function DashboardPage() {
                 <InsightsPanel insights={data.insights} />
               </div>
             </div>
+            <PesEscasezKpiPanel autonomy={data.irrigationAutonomy} />
             {data.dataNotes.length > 0 ? (
               <ul className="list-disc space-y-1 pl-4 text-xs text-muted dark:text-muted-dark">
                 {data.dataNotes.map((note) => (
@@ -208,6 +210,7 @@ export function DashboardPage() {
               <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
             </div>
             <CutRiskPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <PesEscasezKpiPanel autonomy={data.irrigationAutonomy} />
             <IrrigationScenariosPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}

@@ -1024,10 +1024,72 @@ export interface ChgLayerMeta {
   enabled_default?: boolean;
   priority?: number;
   note_es?: string;
+  group?: string;
+  style_mode?: string;
+  highlight_provinces?: string[];
+  series_url?: string;
+  series_note_es?: string;
+  simplify_tol_deg?: number | null;
   wms?: ChgLayerWmsConfig | null;
   datos_gob_es?: string;
   available?: boolean;
   fetched_at?: string | null;
+  error?: string | null;
+}
+
+export interface PesEscasezKpi {
+  kind?: "escasez";
+  available?: boolean;
+  feature_count?: number;
+  as_of?: string | null;
+  counts_by_escenario?: Record<string, number>;
+  worst_escenario?: string | null;
+  worst_label_es?: string | null;
+  highlight_donana_huelva_sevilla?: Array<{
+    cod_ute?: string;
+    nom_ute?: string;
+    escenario?: string;
+    indicador?: number | null;
+    fecha?: string | null;
+  }>;
+  highlight_count?: number;
+  headline_es?: string;
+  units_label_es?: string;
+  caveat_es?: string;
+}
+
+export interface PesSequiaKpi {
+  kind?: "sequia";
+  available?: boolean;
+  feature_count?: number;
+  as_of?: string | null;
+  counts_by_estado?: Record<string, number>;
+  worst_estado?: string | null;
+  worst_label_es?: string | null;
+  highlight_donana_huelva_sevilla?: Array<{
+    cod_szona?: string;
+    nom_szona?: string;
+    estado?: string;
+    indice?: number | null;
+    fecha?: string | null;
+  }>;
+  highlight_count?: number;
+  headline_es?: string;
+  units_label_es?: string;
+  caveat_es?: string;
+}
+
+export interface PesKpiSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  fetched_at?: string | null;
+  cache?: string;
+  attribution?: string;
+  provider?: string;
+  note_es?: string;
+  caveat_es?: string;
+  escasez?: PesEscasezKpi;
+  sequia?: PesSequiaKpi;
   error?: string | null;
 }
 
@@ -1043,12 +1105,14 @@ export interface ChgLayersSnapshot {
   wfs_version?: string;
   cache_ttl_s?: number;
   simplify_tol_deg?: number;
+  pes_simplify_tol_deg?: number;
   as_of?: string | null;
   fetched_at?: string | null;
   lazy?: boolean;
   note_es?: string;
   caveats_es?: string[];
   layers?: ChgLayerMeta[];
+  pes_kpi?: PesKpiSnapshot | null;
 }
 
 export interface OpenLayerLink {
