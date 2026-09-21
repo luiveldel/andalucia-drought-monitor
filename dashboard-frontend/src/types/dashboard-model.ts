@@ -568,6 +568,56 @@ export interface IrrigationScenariosSnapshot {
   by_mode?: Record<string, Record<string, IrrigationScenarioRun>>;
 }
 
+
+export interface CropEtcCropRow {
+  crop_id: string;
+  name_es: string;
+  name_en?: string;
+  kc?: number | null;
+  etc_mm?: number | null;
+  etc_net_mm?: number | null;
+  etc_7d_est_mm?: number | null;
+  demand_hm3_if_all_ha?: number | null;
+  stock_proxy_mm?: number | null;
+  cover_days_proxy?: number | null;
+  vs_baseline_kc_ratio?: number | null;
+  vs_baseline_demand_ratio?: number | null;
+  burn_vs_crop_demand_ratio?: number | null;
+  baseline_days_autonomy?: number | null;
+  pressure?: string;
+}
+
+export interface CropEtcKcMeta {
+  crop_id: string;
+  name_es: string;
+  name_en?: string;
+  kc: number;
+  source_es: string;
+}
+
+export interface CropEtcScope {
+  province_name: string;
+  et0_mm?: number | null;
+  pe_mm?: number | null;
+  irrigated_ha?: number;
+  stored_hm3?: number | null;
+  baseline_kc?: number | null;
+  stock_proxy_mm?: number | null;
+  crops?: CropEtcCropRow[];
+}
+
+export interface CropEtcSnapshot {
+  available: boolean;
+  as_of_siar?: string | null;
+  formula_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  kc_table?: CropEtcKcMeta[];
+  crops_meta?: CropEtcKcMeta[];
+  regional?: CropEtcScope | null;
+  by_province?: CropEtcScope[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -587,6 +637,7 @@ export interface IrrigationAutonomySnapshot {
   heat_demand_cross?: HeatDemandCrossSnapshot;
   cut_risk?: CutRiskSnapshot;
   scenarios?: IrrigationScenariosSnapshot;
+  crop_etc?: CropEtcSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

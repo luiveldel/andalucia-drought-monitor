@@ -136,6 +136,7 @@ def _empty() -> dict[str, Any]:
         "heat_demand_cross": {"available": False, "as_of_heat": None, "as_of_siar": None, "lookback_days": 30, "note": "", "definition_es": "", "regional": None, "by_province": [], "peak_days": [], "series": []},
         "cut_risk": {"available": False, "note_es": "", "method_es": "", "weights_nominal": {}, "bands": {}, "regional": None, "by_province": []},
         "scenarios": {"available": False, "modes": [], "horizons": [7, 14, 21], "note_es": "", "caveats_es": [], "by_mode": {}},
+        "crop_etc": {"available": False, "as_of_siar": None, "formula_es": "ETc (mm) = Kc × ET0_SiAR", "note_es": "", "caveats_es": [], "kc_table": [], "crops_meta": [], "regional": None, "by_province": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -1012,9 +1013,13 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
 
         from app.irrigation_extras import build_irrigation_scenarios
         from app.cut_risk import build_cut_risk
+        from app.crop_etc import build_crop_etc
 
         scenarios = build_irrigation_scenarios(
             by_province, regional=regional, horizons=(7, 14, 21)
+        )
+        crop_etc = build_crop_etc(
+            by_province, regional=regional, as_of_siar=as_of_siar
         )
         spi_snap = None
         try:
@@ -1043,7 +1048,8 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "excluídos sistemas urbanos explícitos (ABASTECIMIENTO Sevilla/Jaén). "
                 "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
                 "Proyección 7d con Open-Meteo ET0; escenarios 7/14/21 (pronóstico vs seco); "
-                "riesgo de corte 0–100; comparativa RIA vs SiAR; balance ET0−P SiAR (mm). "
+                "riesgo de corte 0–100; comparativa RIA vs SiAR; balance ET0−P SiAR (mm); "
+                "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1056,6 +1062,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "heat_demand_cross": heat_demand_cross,
             "cut_risk": cut_risk,
             "scenarios": scenarios,
+            "crop_etc": crop_etc,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"
