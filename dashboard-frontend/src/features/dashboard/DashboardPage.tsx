@@ -119,7 +119,11 @@ export function DashboardPage() {
               </div>
             </div>
             {data.dataNotes.length > 0 ? (
-              <p className="text-xs text-muted dark:text-muted-dark">{data.dataNotes.join(" · ")}</p>
+              <ul className="list-disc space-y-1 pl-4 text-xs text-muted dark:text-muted-dark">
+                {data.dataNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
             ) : null}
           </>
         ) : null}
@@ -172,12 +176,17 @@ export function DashboardPage() {
             <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
-            <RiaSiarComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
 
         {tab === "compare" ? (
-          <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
+          <div className="space-y-6">
+            <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <RiaSiarComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+          </div>
         ) : null}
 
         {tab === "reservoirs" ? <ReservoirTable rows={data.reservoirs} /> : null}

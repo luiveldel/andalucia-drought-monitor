@@ -36,7 +36,18 @@ export function RiaSiarComparePanel(props: {
   if (!cmp?.available) {
     return (
       <section>
-        <SectionHeader title="RIA vs SiAR" description="Compara el mismo día en dos redes: RIA (Andalucía) y SiAR (MAPA riego). Sirve para ver si ET0 o lluvia discrepan entre fuentes." />
+        <SectionHeader
+          title="RIA vs SiAR"
+          description="Compara el mismo día en dos redes: RIA (Andalucía) y SiAR (MAPA riego)."
+        />
+        <Card className="mt-3 border-teal-600/20 dark:border-teal-400/25">
+          <CardContent className="pt-4">
+            <p className="text-sm leading-relaxed text-muted dark:text-muted-dark">
+              {cmp?.note?.trim()
+                || "Todavía no hay un día con datos en ambas redes para comparar. Cuando RIA y SiAR coincidan, verás aquí ET0, temperatura y lluvia lado a lado."}
+            </p>
+          </CardContent>
+        </Card>
       </section>
     );
   }
@@ -55,7 +66,9 @@ export function RiaSiarComparePanel(props: {
             invitan a mirar cobertura de estaciones, no a mezclar las series a ciegas.
           </p>
           {!row ? (
-            <p className="text-sm text-muted dark:text-muted-dark">Sin datos cruzados para {props.province}.</p>
+            <p className="text-sm text-muted dark:text-muted-dark">
+              Sin datos cruzados para {props.province}. Prueba «Andalucía» o otra provincia.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[28rem] text-left text-sm">

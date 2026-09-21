@@ -75,20 +75,20 @@ def _empty_payload() -> dict[str, Any]:
             "precip_mm": 0.0,
             "deficit_mm": 0.0,
         },
-        "weekly_narrative": "Sin datos en marts. Ejecuta los DAGs de Airflow y dbt run.",
+        "weekly_narrative": "Aún no hay datos listos para el panel. Vuelve cuando la carga diaria haya terminado.",
         "alerts": [],
         "recommendations": [
             {
                 "priority": "info",
-                "title": "Poblar el almacén",
-                "detail": "Lanza elt_daily_pipeline y elt_monthly_pipeline, luego dbt run.",
+                "title": "Esperando datos",
+                "detail": "Cuando termine la carga diaria aparecerán alertas y recomendaciones.",
             }
         ],
         "risk_board": [],
         "data_notes": [
-            "Precipitación = avg_precipitation_mm (mm).",
-            "Déficit hídrico = daily_water_deficit_mm (ET0 − precip), no SPI-12.",
-            "SPI-12 pendiente de climatología histórica en marts.",
+            "La precipitación mostrada es la media diaria en mm.",
+            "El déficit hídrico es ET0 menos lluvia del día; no es el índice SPI.",
+            "El SPI aún necesita más historial de lluvia para ser fiable.",
         ],
     }
 
@@ -868,10 +868,10 @@ def load_dashboard_data() -> dict[str, Any]:
             "recommendations": recommendations,
             "risk_board": risk_board,
             "data_notes": [
-                "Precipitación = avg_precipitation_mm (mm), no volumen de embalse.",
-                "Déficit hídrico diario = ET0 − precip (mm); no es SPI-12.",
-                "SPI-12 pendiente de serie climática de referencia en marts.",
-                "Meteo observado = RIA diario; SiAR (MAPA) es capa complementaria de riego; pronóstico = AEMET (municipio) con fallback Open-Meteo.",
-                "Autonomía de riego = piloto (embalse ÷ demanda SiAR×ha Junta 2023); no es un modelo de derechos.",
+                "La precipitación es lluvia media del día (mm), no el volumen del embalse.",
+                "El déficit hídrico diario es ET0 menos lluvia; no es el índice SPI.",
+                "El SPI aún necesita más historial de lluvia para ser fiable.",
+                "El clima observado combina RIA (Andalucía) y SiAR (MAPA riego); el pronóstico usa AEMET y, si falta, Open-Meteo.",
+                "La autonomía de riego es un piloto orientativo (embalse ÷ demanda SiAR); no decide derechos de agua.",
             ],
         }

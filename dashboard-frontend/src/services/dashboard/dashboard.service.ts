@@ -280,7 +280,7 @@ function buildInsights(api: ApiPayload): string[] {
     insights.push(`${a.title}: ${a.detail}`);
   }
   for (const note of api.data_notes ?? []) insights.push(note);
-  return insights.length ? insights : ["Sin insights — espera datos en marts."];
+  return insights.length ? insights : ["Sin lectura rápida todavía — esperando datos del día."];
 }
 
 function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): DashboardSnapshot {

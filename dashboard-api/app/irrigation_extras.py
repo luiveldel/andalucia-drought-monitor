@@ -273,7 +273,11 @@ def build_autonomy_projection(
 
 
 def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[str, Any]:
-    """Side-by-side RIA vs SiAR provincial means for the latest common date."""
+    """Side-by-side RIA vs SiAR provincial means for the latest common date.
+
+    SiAR can publish one day ahead of RIA. When the caller passes a SiAR-only
+    max date, we fall back to the latest date present in BOTH networks.
+    """
     empty = {
         "available": False,
         "as_of": None,
@@ -282,52 +286,62 @@ def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[s
         "by_province": [],
     }
     try:
-        if not as_of:
-            rows = _rows(
-                conn,
-                """
-                SELECT LEAST(
-                    (SELECT MAX(fecha) FROM raw.raw_siar_clima_diario WHERE ccaa_codigo='AND'),
-                    (SELECT MAX(fecha) FROM raw.raw_ria_clima_diario)
-                )::text AS d
-                """,
-            )
-            as_of = rows[0]["d"] if rows else None
-        if not as_of:
-            empty["note"] = "Sin fechas comunes RIA/SiAR."
+        common_rows = _rows(
+            conn,
+            """
+            SELECT LEAST(
+                (SELECT MAX(fecha) FROM raw.raw_siar_clima_diario WHERE ccaa_codigo='AND'),
+                (SELECT MAX(fecha) FROM raw.raw_ria_clima_diario)
+            )::text AS d
+            """,
+        )
+        common = common_rows[0]["d"] if common_rows and common_rows[0].get("d") else None
+        if not common:
+            empty["note"] = "Todavía no hay un día con datos en RIA y SiAR a la vez."
             return empty
 
-        siar = _rows(
-            conn,
-            """
-            SELECT provincia_nombre AS province_name,
-                   COUNT(*)::int AS stations,
-                   AVG(et0)::float AS et0_mm,
-                   AVG(temp_media)::float AS mean_temp_c,
-                   AVG(precipitacion)::float AS precip_mm,
-                   AVG(humedad_media)::float AS mean_humidity_pct
-            FROM raw.raw_siar_clima_diario
-            WHERE ccaa_codigo='AND' AND fecha=CAST(:d AS date)
-              AND provincia_nombre IS NOT NULL
-            GROUP BY provincia_nombre
-            """,
-            d=as_of,
-        )
-        ria = _rows(
-            conn,
-            """
-            SELECT provincia_nombre AS province_name,
-                   COUNT(*)::int AS stations,
-                   AVG(et0)::float AS et0_mm,
-                   AVG(temp_media)::float AS mean_temp_c,
-                   AVG(precipitacion)::float AS precip_mm,
-                   AVG(humedad_media)::float AS mean_humidity_pct
-            FROM raw.raw_ria_clima_diario
-            WHERE fecha=CAST(:d AS date) AND provincia_nombre IS NOT NULL
-            GROUP BY provincia_nombre
-            """,
-            d=as_of,
-        )
+        def _fetch(d: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            siar_rows = _rows(
+                conn,
+                """
+                SELECT provincia_nombre AS province_name,
+                       COUNT(*)::int AS stations,
+                       AVG(et0)::float AS et0_mm,
+                       AVG(temp_media)::float AS mean_temp_c,
+                       AVG(precipitacion)::float AS precip_mm,
+                       AVG(humedad_media)::float AS mean_humidity_pct
+                FROM raw.raw_siar_clima_diario
+                WHERE ccaa_codigo='AND' AND fecha=CAST(:d AS date)
+                  AND provincia_nombre IS NOT NULL
+                GROUP BY provincia_nombre
+                """,
+                d=d,
+            )
+            ria_rows = _rows(
+                conn,
+                """
+                SELECT provincia_nombre AS province_name,
+                       COUNT(*)::int AS stations,
+                       AVG(et0)::float AS et0_mm,
+                       AVG(temp_media)::float AS mean_temp_c,
+                       AVG(precipitacion)::float AS precip_mm,
+                       AVG(humedad_media)::float AS mean_humidity_pct
+                FROM raw.raw_ria_clima_diario
+                WHERE fecha=CAST(:d AS date) AND provincia_nombre IS NOT NULL
+                GROUP BY provincia_nombre
+                """,
+                d=d,
+            )
+            return siar_rows, ria_rows
+
+        # Prefer caller's date only if both networks have provinces; else common.
+        candidate = as_of or common
+        siar, ria = _fetch(candidate)
+        overlap = set(r["province_name"] for r in siar) & set(r["province_name"] for r in ria)
+        if not overlap and candidate != common:
+            candidate = common
+            siar, ria = _fetch(candidate)
+        as_of = candidate
         siar_by = {r["province_name"]: r for r in siar}
         ria_by = {r["province_name"]: r for r in ria}
         names = sorted(set(siar_by) & set(ria_by))
@@ -414,8 +428,16 @@ def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[s
                 },
             }
 
+        if not by_province:
+            empty["as_of"] = as_of
+            empty["note"] = (
+                "No hay provincias con datos en RIA y SiAR el mismo día "
+                f"({as_of}). Cuando coincidan, verás aquí la comparación."
+            )
+            return empty
+
         return {
-            "available": bool(by_province),
+            "available": True,
             "as_of": as_of,
             "note": (
                 "Media provincial del mismo día. Δ = SiAR − RIA. "
@@ -425,7 +447,7 @@ def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[s
             "by_province": by_province,
         }
     except Exception as exc:  # noqa: BLE001
-        empty["note"] = f"Error comparando RIA/SiAR: {exc}"
+        empty["note"] = "No se pudo comparar RIA y SiAR ahora mismo. Prueba más tarde."
         return empty
 
 

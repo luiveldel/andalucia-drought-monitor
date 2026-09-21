@@ -80,7 +80,7 @@ export function ObservedMeteoPanel(props: {
 
           {!m.available || !r ? (
             <p className="text-sm text-muted dark:text-muted-dark">
-              Sin observaciones RIA recientes{isRegional ? " en marts" : ` para ${props.province}`}.
+              Sin observaciones RIA recientes{isRegional ? "" : ` para ${props.province}`}.
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
