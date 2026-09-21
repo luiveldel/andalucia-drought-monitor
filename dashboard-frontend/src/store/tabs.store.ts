@@ -6,6 +6,7 @@ export type DashboardTab =
   | "map"
   | "climate"
   | "irrigation"
+  | "risk"
   | "compare"
   | "reservoirs";
 

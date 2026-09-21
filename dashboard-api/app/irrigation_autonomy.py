@@ -134,6 +134,8 @@ def _empty() -> dict[str, Any]:
         "ria_siar_compare": {"available": False, "as_of": None, "note": "", "regional": None, "by_province": []},
         "water_balance": {"available": False, "as_of": None, "note": "", "unit": "mm", "definition_es": "Balance atmosférico SiAR: ET0 − precipitación. Positivo = la evaporación supera a la lluvia.", "regional": None, "by_province": []},
         "heat_demand_cross": {"available": False, "as_of_heat": None, "as_of_siar": None, "lookback_days": 30, "note": "", "definition_es": "", "regional": None, "by_province": [], "peak_days": [], "series": []},
+        "cut_risk": {"available": False, "note_es": "", "method_es": "", "weights_nominal": {}, "bands": {}, "regional": None, "by_province": []},
+        "scenarios": {"available": False, "modes": [], "horizons": [7, 14, 21], "note_es": "", "caveats_es": [], "by_mode": {}},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -1008,6 +1010,26 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         heat_demand_cross = build_heat_demand_cross(conn, as_of=as_of_siar, lookback_days=30)
         compare = build_ria_siar_compare(conn, as_of=as_of_siar)
 
+        from app.irrigation_extras import build_irrigation_scenarios
+        from app.cut_risk import build_cut_risk
+
+        scenarios = build_irrigation_scenarios(
+            by_province, regional=regional, horizons=(7, 14, 21)
+        )
+        spi_snap = None
+        try:
+            from app.spi_gis import load_spi_latest
+            spi_snap = load_spi_latest(conn)
+        except Exception:  # noqa: BLE001
+            spi_snap = None
+        cut_risk = build_cut_risk(
+            regional=regional,
+            by_province=by_province,
+            projection=projection,
+            heat_demand_cross=heat_demand_cross,
+            spi=spi_snap,
+        )
+
         return {
             "available": bool(by_province),
             "as_of_reservoir": as_of_res,
@@ -1020,7 +1042,8 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "Piloto afinado. Ha Junta 2023; Kc por cultivo dominante; "
                 "excluídos sistemas urbanos explícitos (ABASTECIMIENTO Sevilla/Jaén). "
                 "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
-                "Proyección 7d con Open-Meteo ET0; comparativa RIA vs SiAR; balance ET0−P SiAR (mm). "
+                "Proyección 7d con Open-Meteo ET0; escenarios 7/14/21 (pronóstico vs seco); "
+                "riesgo de corte 0–100; comparativa RIA vs SiAR; balance ET0−P SiAR (mm). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1031,6 +1054,8 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "ria_siar_compare": compare,
             "water_balance": water_balance,
             "heat_demand_cross": heat_demand_cross,
+            "cut_risk": cut_risk,
+            "scenarios": scenarios,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

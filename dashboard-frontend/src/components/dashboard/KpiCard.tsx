@@ -29,8 +29,8 @@ export function KpiCard(props: { kpi: DashboardKpi }) {
           {kpi.severity ? <StatusBadge level={kpi.severity} /> : null}
         </div>
         <p className="mt-2 font-display text-3xl font-semibold tabular-nums tracking-tight text-ink dark:text-ink-dark">
-          {kpi.unit === "%" || kpi.unit === "of 8" || kpi.unit === ""
-            ? kpi.value.toLocaleString("en-GB", { maximumFractionDigits: kpi.unit ? 1 : 2 })
+          {kpi.unit === "%" || kpi.unit === "of 8" || kpi.unit === "/100" || kpi.unit === ""
+            ? kpi.value.toLocaleString("en-GB", { maximumFractionDigits: kpi.unit === "/100" ? 0 : kpi.unit ? 1 : 2 })
             : kpi.value.toLocaleString("en-GB", { maximumFractionDigits: 0 })}
           {kpi.unit ? (
             <span className="ml-1 text-lg font-medium text-muted dark:text-muted-dark">{kpi.unit}</span>

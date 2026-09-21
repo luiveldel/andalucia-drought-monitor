@@ -11,15 +11,17 @@ import {
   LayoutDashboard,
   Map,
   Scale,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
-const TABS: { id: DashboardTab; key: "tab.overview" | "tab.decision" | "tab.map" | "tab.climate" | "tab.irrigation" | "tab.compare" | "tab.reservoirs"; icon: LucideIcon }[] = [
+const TABS: { id: DashboardTab; key: "tab.overview" | "tab.decision" | "tab.map" | "tab.climate" | "tab.irrigation" | "tab.risk" | "tab.compare" | "tab.reservoirs"; icon: LucideIcon }[] = [
   { id: "overview", key: "tab.overview", icon: LayoutDashboard },
   { id: "decision", key: "tab.decision", icon: Scale },
   { id: "map", key: "tab.map", icon: Map },
   { id: "climate", key: "tab.climate", icon: CloudRain },
   { id: "irrigation", key: "tab.irrigation", icon: Sprout },
+  { id: "risk", key: "tab.risk", icon: ShieldAlert },
   { id: "compare", key: "tab.compare", icon: ArrowLeftRight },
   { id: "reservoirs", key: "tab.reservoirs", icon: Droplets },
 ];

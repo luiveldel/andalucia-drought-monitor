@@ -32,7 +32,7 @@ const STRESS_TONE: ChartTone = {
   fillBottom: STRESS_FILL_BOTTOM,
 };
 
-const STRESS_IDS = new Set(["deficit", "stress", "temp_anomaly", "heat"]);
+const STRESS_IDS = new Set(["deficit", "stress", "temp_anomaly", "heat", "cut_risk"]);
 
 /** Blue for water abundance metrics; terracotta/red for scarcity problems. */
 export function chartToneForId(id: string): ChartTone {

@@ -127,6 +127,21 @@ function buildKpis(api: ApiPayload): DashboardKpi[] {
       severity: Number(api.avg_stress ?? 0) >= 0.7 ? "emergency" : "warning",
     },
   ];
+
+  const cut = api.irrigation_autonomy?.cut_risk?.regional;
+  if (cut?.available && cut.score != null && Number.isFinite(Number(cut.score))) {
+    const s = Number(cut.score);
+    const sev: SeverityLevel =
+      s >= 75 ? "critical" : s >= 50 ? "emergency" : s >= 25 ? "warning" : "normal";
+    kpis.unshift({
+      id: "cut_risk",
+      label: "Riesgo de corte",
+      value: s,
+      unit: "/100",
+      severity: sev,
+    });
+  }
+
   const spiVal = api.spi?.regional_spi;
   if (spiVal != null && Number.isFinite(spiVal)) {
     const sev: SeverityLevel =
@@ -359,6 +374,8 @@ function mapApiToSnapshot(api: ApiPayload, range: DashboardTimeRange): Dashboard
       ria_siar_compare: { available: false, as_of: null, note: "", regional: null, by_province: [] },
       water_balance: { available: false, as_of: null, note: "", unit: "mm", regional: null, by_province: [] },
       heat_demand_cross: { available: false, as_of_heat: null, as_of_siar: null, lookback_days: 30, note: "", regional: null, by_province: [], peak_days: [], series: [] },
+      cut_risk: { available: false, note_es: "", method_es: "", weights_nominal: {}, bands: {}, regional: null, by_province: [] },
+      scenarios: { available: false, modes: [], horizons: [7, 14, 21], note_es: "", caveats_es: [], by_mode: {} },
     },
     climateByProvince: api.climate_by_province ?? {},
     meteoForecast: api.meteo_forecast ?? {

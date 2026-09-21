@@ -272,6 +272,333 @@ def build_autonomy_projection(
     }
 
 
+
+# Open-Meteo free forecast typically covers ~16 days; beyond that we only
+# extend with the mean of the observed forecast window (clearly labelled).
+_OM_MAX_FORECAST_DAYS = 16
+_SCENARIO_HORIZONS = (7, 14, 21)
+_DRY_ET0_FACTOR = 1.15  # pessimistic: ET0 +15% vs forecast, precip = 0
+
+
+def _extend_forecast(days_fc: list[dict[str, Any]], horizon: int) -> tuple[list[dict[str, Any]], bool]:
+    """Return forecast sliced/extended to horizon. Second flag = used mean extrapolation."""
+    if not days_fc:
+        return [], False
+    if len(days_fc) >= horizon:
+        return days_fc[:horizon], False
+    # Extrapolate remaining days with mean ET0 / precip of the OM window.
+    mean_et0 = sum(d["et0_mm"] for d in days_fc) / len(days_fc)
+    mean_pe = sum(d["precip_mm"] for d in days_fc) / len(days_fc)
+    from datetime import date, timedelta
+
+    last = date.fromisoformat(str(days_fc[-1]["date"])[:10])
+    out = list(days_fc)
+    for i in range(len(days_fc), horizon):
+        last = last + timedelta(days=1)
+        out.append({"date": last.isoformat(), "et0_mm": mean_et0, "precip_mm": mean_pe})
+    return out, True
+
+
+def _apply_scenario_mode(
+    days_fc: list[dict[str, Any]], mode: str
+) -> list[dict[str, Any]]:
+    if mode == "baseline":
+        return [
+            {"date": d["date"], "et0_mm": d["et0_mm"], "precip_mm": d["precip_mm"]}
+            for d in days_fc
+        ]
+    # dry_high_et0: no rain + elevated ET0
+    return [
+        {
+            "date": d["date"],
+            "et0_mm": float(d["et0_mm"]) * _DRY_ET0_FACTOR,
+            "precip_mm": 0.0,
+        }
+        for d in days_fc
+    ]
+
+
+def _project_from_forecast(
+    base: dict[str, Any],
+    days_fc: list[dict[str, Any]],
+) -> dict[str, Any]:
+    name = base["province_name"]
+    kc = float(base.get("kc") or KC_BY_PROVINCE.get(name, DEFAULT_KC))
+    ha = int(base.get("irrigated_ha") or IRRIGATED_HA_2023.get(name, 0))
+    stored = float(base.get("stored_hm3") or 0)
+    series: list[dict[str, Any]] = []
+    cum_demand = 0.0
+    for day in days_fc:
+        dem = _daily_demand_hm3(day["et0_mm"], day["precip_mm"], ha, kc)
+        stored = max(0.0, stored - dem)
+        cum_demand += dem
+        days_aut = (stored / dem) if dem > 1e-9 else None
+        series.append(
+            {
+                "date": day["date"],
+                "et0_mm": _f(day["et0_mm"], 2),
+                "precip_mm": _f(day["precip_mm"], 2),
+                "daily_demand_hm3": _f(dem, 3),
+                "stored_hm3": _f(stored, 1),
+                "days_autonomy": _f(days_aut, 1) if days_aut is not None else None,
+            }
+        )
+    end_days = series[-1]["days_autonomy"] if series else None
+    start_days = base.get("days_autonomy")
+    until_crit = _days_until_critical(
+        float(start_days) if start_days is not None else None,
+        series,
+    )
+    # Estimated calendar date of critical / restriction (warning band)
+    crit_date = None
+    restrict_date = None
+    warn_band = float(THRESHOLDS.get("autonomy_warning", 60.0))
+    if until_crit is not None and until_crit > 0 and series:
+        from datetime import date, timedelta
+
+        start_d = date.fromisoformat(str(series[0]["date"])[:10])
+        # until_crit is "after N forecast days" → date of that day
+        crit_date = (start_d + timedelta(days=until_crit - 1)).isoformat()
+    elif until_crit == 0:
+        crit_date = series[0]["date"] if series else None
+    for i, day in enumerate(series):
+        da = day.get("days_autonomy")
+        if da is not None and float(da) < warn_band:
+            restrict_date = day["date"]
+            break
+    if start_days is not None and float(start_days) < warn_band:
+        restrict_date = series[0]["date"] if series else restrict_date
+
+    return {
+        "province_name": name,
+        "available": True,
+        "kc": _f(kc, 2),
+        "irrigated_ha": ha,
+        "stored_start_hm3": base.get("stored_hm3"),
+        "stored_end_hm3": series[-1]["stored_hm3"] if series else None,
+        "fill_pct_start": base.get("fill_pct"),
+        "cumulative_demand_hm3": _f(cum_demand, 3),
+        "days_autonomy_start": start_days,
+        "days_autonomy_end": end_days,
+        "days_until_critical": until_crit,
+        "critical_date": crit_date,
+        "restriction_date": restrict_date,
+        "critical_threshold_days": CRITICAL_AUTONOMY_DAYS,
+        "risk_level_end": _risk_level(float(end_days) if end_days is not None else None),
+        "days": series,
+    }
+
+
+def _regional_from_projected(
+    projected: list[dict[str, Any]],
+    *,
+    regional_start_days: float | None = None,
+) -> dict[str, Any] | None:
+    ok = [p for p in projected if p.get("available")]
+    if not ok:
+        return None
+    dates = [d["date"] for d in (ok[0].get("days") or [])]
+    if not dates:
+        return None
+    series_r: list[dict[str, Any]] = []
+    stored0 = sum(float(p.get("stored_start_hm3") or 0) for p in ok)
+    stored = stored0
+    cum = 0.0
+    for i, d in enumerate(dates):
+        dem = 0.0
+        et0_w = 0.0
+        pe_w = 0.0
+        ha_t = 0
+        for p in ok:
+            day = (p.get("days") or [None])[i]
+            if not day:
+                continue
+            dem += float(day["daily_demand_hm3"] or 0)
+            ha_p = int(p.get("irrigated_ha") or 0)
+            et0_w += float(day["et0_mm"] or 0) * ha_p
+            pe_w += float(day["precip_mm"] or 0) * ha_p
+            ha_t += ha_p
+        stored = max(0.0, stored - dem)
+        cum += dem
+        days_aut = (stored / dem) if dem > 1e-9 else None
+        series_r.append(
+            {
+                "date": d,
+                "et0_mm": _f(et0_w / ha_t, 2) if ha_t else None,
+                "precip_mm": _f(pe_w / ha_t, 2) if ha_t else None,
+                "daily_demand_hm3": _f(dem, 3),
+                "stored_hm3": _f(stored, 1),
+                "days_autonomy": _f(days_aut, 1) if days_aut is not None else None,
+            }
+        )
+    end_days = series_r[-1]["days_autonomy"] if series_r else None
+    until_crit = _days_until_critical(
+        float(regional_start_days) if regional_start_days is not None else None,
+        series_r,
+    )
+    crit_date = None
+    restrict_date = None
+    warn_band = float(THRESHOLDS.get("autonomy_warning", 60.0))
+    if until_crit is not None and until_crit > 0 and series_r:
+        from datetime import date, timedelta
+
+        start_d = date.fromisoformat(str(series_r[0]["date"])[:10])
+        crit_date = (start_d + timedelta(days=until_crit - 1)).isoformat()
+    elif until_crit == 0:
+        crit_date = series_r[0]["date"] if series_r else None
+    for day in series_r:
+        da = day.get("days_autonomy")
+        if da is not None and float(da) < warn_band:
+            restrict_date = day["date"]
+            break
+    return {
+        "province_name": "Andalucía",
+        "available": True,
+        "stored_start_hm3": _f(stored0, 1),
+        "stored_end_hm3": series_r[-1]["stored_hm3"] if series_r else None,
+        "cumulative_demand_hm3": _f(cum, 3),
+        "days_autonomy_start": regional_start_days,
+        "days_autonomy_end": end_days,
+        "days_until_critical": until_crit,
+        "critical_date": crit_date,
+        "restriction_date": restrict_date,
+        "critical_threshold_days": CRITICAL_AUTONOMY_DAYS,
+        "risk_level_end": _risk_level(float(end_days) if end_days is not None else None),
+        "days": series_r,
+    }
+
+
+def build_irrigation_scenarios(
+    by_province: list[dict[str, Any]],
+    *,
+    regional: dict[str, Any] | None = None,
+    horizons: tuple[int, ...] = _SCENARIO_HORIZONS,
+) -> dict[str, Any]:
+    """Baseline Open-Meteo forecast vs dry/high-ET0 pessimistic scenarios.
+
+    Horizons 7/14 use Open-Meteo directly (up to ~16 d). Horizon 21 may extend
+    the last OM days with their mean ET0/precip — labelled in caveats_es.
+    """
+    empty = {
+        "available": False,
+        "modes": [
+            {
+                "id": "baseline",
+                "label_es": "Pronóstico",
+                "describe_es": "ET0 y lluvia del pronóstico Open-Meteo (FAO-56).",
+            },
+            {
+                "id": "dry_high_et0",
+                "label_es": "Seco / ET0 alta",
+                "describe_es": (
+                    f"Sin lluvia y ET0 un {_DRY_ET0_FACTOR:.0%} del pronóstico "
+                    "(escenario pesimista orientativo)."
+                ),
+            },
+        ],
+        "horizons": list(horizons),
+        "note_es": "",
+        "caveats_es": [],
+        "attribution": "https://open-meteo.com",
+        "by_mode": {},
+    }
+    if not by_province:
+        empty["note_es"] = "Sin provincias base para escenarios."
+        return empty
+
+    coords = {p["name"]: (float(p["lat"]), float(p["lon"])) for p in PROVINCES}
+    max_h = max(horizons)
+    fetch_days = min(max_h, _OM_MAX_FORECAST_DAYS)
+
+    # Prefetch once per province (cached).
+    forecasts: dict[str, list[dict[str, Any]]] = {}
+    errors: dict[str, str] = {}
+    for base in by_province:
+        name = base["province_name"]
+        if name == "Andalucía":
+            continue
+        lat, lon = coords.get(name, (_OM_LAT, _OM_LON))
+        try:
+            forecasts[name] = _om_et0_forecast(lat, lon, fetch_days)
+        except Exception as exc:  # noqa: BLE001
+            errors[name] = str(exc)[:160]
+
+    if not forecasts:
+        empty["note_es"] = "No se pudo obtener el pronóstico Open-Meteo."
+        return empty
+
+    caveats: list[str] = [
+        "Escenarios piloto: no son un balance oficial de derechos ni un aviso de la Junta.",
+        "Parten del embalse usable actual y restan cada día la demanda Kc×max(0, ET0−P)×ha.",
+    ]
+    if max_h > _OM_MAX_FORECAST_DAYS:
+        caveats.append(
+            f"Open-Meteo cubre ~{_OM_MAX_FORECAST_DAYS} d; el horizonte {max_h} d "
+            "extiende con la media de ET0/lluvia del tramo pronosticado (no es un "
+            "pronóstico real día a día)."
+        )
+    caveats.append(
+        f"El modo seco aplica precipitación 0 y ET0 ×{_DRY_ET0_FACTOR:.2f} "
+        "sobre el mismo tramo meteorológico."
+    )
+
+    regional_start = (regional or {}).get("days_autonomy")
+    by_mode: dict[str, Any] = {}
+    for mode in ("baseline", "dry_high_et0"):
+        by_horizon: dict[str, Any] = {}
+        for horizon in horizons:
+            projected: list[dict[str, Any]] = []
+            used_ext = False
+            for base in by_province:
+                name = base["province_name"]
+                if name == "Andalucía":
+                    continue
+                if name in errors:
+                    projected.append(
+                        {
+                            "province_name": name,
+                            "available": False,
+                            "error": errors[name],
+                            "days": [],
+                        }
+                    )
+                    continue
+                raw = forecasts.get(name) or []
+                extended, was_ext = _extend_forecast(raw, horizon)
+                used_ext = used_ext or was_ext
+                days_fc = _apply_scenario_mode(extended, mode)
+                if not days_fc:
+                    continue
+                projected.append(_project_from_forecast(base, days_fc))
+            regional_row = _regional_from_projected(
+                projected, regional_start_days=float(regional_start) if regional_start is not None else None
+            )
+            by_horizon[str(horizon)] = {
+                "available": bool(any(p.get("available") for p in projected)),
+                "horizon_days": horizon,
+                "mode": mode,
+                "extrapolated_beyond_om": used_ext,
+                "regional": regional_row,
+                "by_province": projected,
+            }
+        by_mode[mode] = by_horizon
+
+    return {
+        "available": True,
+        "modes": empty["modes"],
+        "horizons": list(horizons),
+        "note_es": (
+            "Compara el pronóstico meteorológico con un escenario seco de ET0 alta "
+            "para anticipar cuándo la autonomía podría entrar en alerta o crítico."
+        ),
+        "caveats_es": caveats,
+        "attribution": "https://open-meteo.com",
+        "source": "Open-Meteo ET0 FAO-56",
+        "by_mode": by_mode,
+    }
+
+
+
 def build_ria_siar_compare(conn: Connection, as_of: str | None = None) -> dict[str, Any]:
     """Side-by-side RIA vs SiAR provincial means for the latest common date.
 

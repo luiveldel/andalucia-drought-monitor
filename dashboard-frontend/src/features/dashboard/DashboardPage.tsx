@@ -16,6 +16,8 @@ import { IrrigationProjectionPanel } from "@/components/climate/IrrigationProjec
 import { RiaSiarComparePanel } from "@/components/climate/RiaSiarComparePanel";
 import { SiarWaterBalancePanel } from "@/components/climate/SiarWaterBalancePanel";
 import { HeatDemandCrossPanel } from "@/components/climate/HeatDemandCrossPanel";
+import { CutRiskPanel } from "@/components/climate/CutRiskPanel";
+import { IrrigationScenariosPanel } from "@/components/climate/IrrigationScenariosPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -176,6 +178,20 @@ export function DashboardPage() {
             <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+          </div>
+        ) : null}
+
+        {tab === "risk" ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader
+                title={t("section.risk")}
+                description={t("section.risk.desc")}
+              />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <CutRiskPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IrrigationScenariosPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
 

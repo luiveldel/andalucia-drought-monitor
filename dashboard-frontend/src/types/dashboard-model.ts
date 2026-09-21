@@ -328,6 +328,9 @@ export interface IrrigationProjectionProvince {
   days_until_critical?: number | null;
   critical_threshold_days?: number | null;
   risk_level_end?: string;
+  critical_date?: string | null;
+  restriction_date?: string | null;
+  fill_pct_start?: number | null;
   days?: IrrigationProjectionDay[];
   error?: string;
 }
@@ -506,6 +509,65 @@ export interface HeatDemandCrossSnapshot {
   series?: HeatDemandCrossDay[];
 }
 
+
+
+export interface CutRiskDriver {
+  id: string;
+  label_es: string;
+  score: number | null;
+  weight: number;
+  contribution: number | null;
+  explain_es: string;
+}
+
+export interface CutRiskScore {
+  available: boolean;
+  province_name?: string;
+  score: number | null;
+  band?: "ok" | "watch" | "warning" | "critical" | "unknown" | string;
+  weights_used?: Record<string, number>;
+  drivers?: CutRiskDriver[];
+  why_es?: string;
+  bands?: Record<string, string>;
+  inputs?: Record<string, number | null | undefined>;
+}
+
+export interface CutRiskSnapshot {
+  available: boolean;
+  note_es?: string;
+  method_es?: string;
+  weights_nominal?: Record<string, number>;
+  bands?: Record<string, string>;
+  regional?: CutRiskScore | null;
+  by_province?: CutRiskScore[];
+}
+
+export interface IrrigationScenarioModeMeta {
+  id: string;
+  label_es: string;
+  describe_es: string;
+}
+
+export interface IrrigationScenarioRun {
+  available: boolean;
+  horizon_days?: number;
+  mode?: string;
+  extrapolated_beyond_om?: boolean;
+  regional?: IrrigationProjectionProvince | null;
+  by_province?: IrrigationProjectionProvince[];
+}
+
+export interface IrrigationScenariosSnapshot {
+  available: boolean;
+  modes?: IrrigationScenarioModeMeta[];
+  horizons?: number[];
+  note_es?: string;
+  caveats_es?: string[];
+  attribution?: string;
+  source?: string;
+  by_mode?: Record<string, Record<string, IrrigationScenarioRun>>;
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -523,6 +585,8 @@ export interface IrrigationAutonomySnapshot {
   ria_siar_compare?: RiaSiarCompareSnapshot;
   water_balance?: SiarWaterBalanceSnapshot;
   heat_demand_cross?: HeatDemandCrossSnapshot;
+  cut_risk?: CutRiskSnapshot;
+  scenarios?: IrrigationScenariosSnapshot;
 }
 
 export interface MeteoSiarSnapshot {
