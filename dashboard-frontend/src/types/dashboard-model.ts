@@ -804,6 +804,65 @@ export interface CampaignCompareSnapshot {
   comparisons?: CampaignCompareComparison[];
 }
 
+
+export interface StationReservoirLink {
+  station_code: string;
+  station_name?: string;
+  province_name?: string;
+  lat?: number | null;
+  lon?: number | null;
+  is_estimate?: boolean;
+  link_method?: "nearest_reservoir" | "province_dominant_system" | string | null;
+  reservoir_code?: string | null;
+  reservoir_name?: string | null;
+  exploitation_system?: string | null;
+  watershed_demarcation?: string | null;
+  distance_km?: number | null;
+}
+
+export interface StationReservoirMarker {
+  reservoir_code: string;
+  reservoir_name?: string;
+  province_name?: string;
+  exploitation_system?: string;
+  watershed_demarcation?: string;
+  lat?: number | null;
+  lon?: number | null;
+  capacity_hm3?: number | null;
+  linked_station_count?: number;
+}
+
+export interface StationReservoirSystemAgg {
+  exploitation_system: string;
+  station_count?: number;
+  reservoir_count?: number;
+  is_estimate?: boolean;
+}
+
+export interface StationReservoirLinksSnapshot {
+  available: boolean;
+  as_of_siar?: string | null;
+  method?: string;
+  method_es?: string;
+  proxy_label_es?: string;
+  max_link_distance_km?: number;
+  excluded_systems?: string[];
+  crs_reservoirs?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  stations?: StationReservoirLink[];
+  reservoirs?: StationReservoirMarker[];
+  by_system?: StationReservoirSystemAgg[];
+  summary?: {
+    station_count?: number;
+    linked_nearest?: number;
+    linked_province_fallback?: number;
+    unlinked?: number;
+    reservoir_count?: number;
+    system_count?: number;
+  };
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -827,6 +886,7 @@ export interface IrrigationAutonomySnapshot {
   effective_precip?: EffectivePrecipSnapshot;
   siar_by_system?: SiarBySystemSnapshot;
   campaign_compare?: CampaignCompareSnapshot;
+  station_reservoir_links?: StationReservoirLinksSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

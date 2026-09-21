@@ -34,6 +34,7 @@ import { DecisionCenter } from "@/components/decision/DecisionCenter";
 import { InsightsPanel } from "@/components/insights/InsightsPanel";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ProvinceStatusMap } from "@/components/maps/ProvinceStatusMap";
+import { SiarReservoirMapPanel } from "@/components/maps/SiarReservoirMapPanel";
 import { ProvinceStatusGrid } from "@/components/provinces/ProvinceStatusGrid";
 import { SeverityDistributionCard } from "@/components/severity/SeverityDistributionCard";
 import { ReservoirTable } from "@/components/table/ReservoirTable";
@@ -140,6 +141,7 @@ export function DashboardPage() {
             <div className="mt-3 space-y-4">
               <ProvinceStatusGrid provinces={data.provinces} />
               <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
+              <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
             </div>
           </section>
         ) : null}
@@ -185,6 +187,7 @@ export function DashboardPage() {
             <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <CropEtcPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
+            <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
             <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>

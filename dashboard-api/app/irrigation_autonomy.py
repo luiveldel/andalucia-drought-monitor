@@ -139,6 +139,29 @@ def _empty() -> dict[str, Any]:
         "crop_etc": {"available": False, "as_of_siar": None, "formula_es": "ETc (mm) = Kc × ET0_SiAR", "note_es": "", "caveats_es": [], "kc_table": [], "crops_meta": [], "regional": None, "by_province": []},
         "effective_precip": {"available": False, "as_of": None, "unit": "mm", "source_preferred": "siar_pepmon", "formula_es": "", "note_es": "", "caveats_es": [], "definition_es": "", "regional": None, "by_province": []},
         "siar_by_system": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "proxy": "capacity_share_within_province", "proxy_label_es": "", "excluded_systems": [], "unit_demand": "hm3/day", "unit_depth": "mm", "formula_es": "", "note_es": "", "caveats_es": [], "method_es": "", "by_system": [], "province_shares": []},
+        "station_reservoir_links": {
+            "available": False,
+            "as_of_siar": None,
+            "method": "nearest_non_urban_reservoir_or_province_dominant_system",
+            "method_es": "",
+            "proxy_label_es": "",
+            "max_link_distance_km": 80.0,
+            "excluded_systems": [],
+            "crs_reservoirs": "EPSG:25830→WGS84",
+            "note_es": "",
+            "caveats_es": [],
+            "stations": [],
+            "reservoirs": [],
+            "by_system": [],
+            "summary": {
+                "station_count": 0,
+                "linked_nearest": 0,
+                "linked_province_fallback": 0,
+                "unlinked": 0,
+                "reservoir_count": 0,
+                "system_count": 0,
+            },
+        },
         "campaign_compare": {
             "available": False,
             "campaign": {"label_es": "Campaña agrícola abr–sep", "start_month": 4, "start_day": 1, "end_month": 9, "end_day": 30},
@@ -1058,8 +1081,10 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             as_of_siar=as_of_siar,
         )
         from app.campaign_compare import build_campaign_compare
+        from app.station_reservoir_links import build_station_reservoir_links
 
         campaign_compare = build_campaign_compare(conn, as_of=as_of_siar)
+        station_reservoir_links = build_station_reservoir_links(conn)
         spi_snap = None
         try:
             from app.spi_gis import load_spi_latest
@@ -1091,7 +1116,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1108,6 +1133,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "effective_precip": effective_precip,
             "siar_by_system": siar_by_system,
             "campaign_compare": campaign_compare,
+            "station_reservoir_links": station_reservoir_links,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"
