@@ -132,6 +132,7 @@ def _empty() -> dict[str, Any]:
         "projection": {"available": False, "horizon_days": 7, "source": "", "attribution": "", "note": "", "regional": None, "by_province": []},
         "thresholds": thresholds_public(),
         "ria_siar_compare": {"available": False, "as_of": None, "note": "", "regional": None, "by_province": []},
+        "water_balance": {"available": False, "as_of": None, "note": "", "unit": "mm", "definition_es": "Balance atmosférico SiAR: ET0 − precipitación. Positivo = la evaporación supera a la lluvia.", "regional": None, "by_province": []},
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -410,6 +411,166 @@ def _trend_delta(trend: list[dict[str, Any]], lookback: int = 7) -> float | None
     except Exception:  # noqa: BLE001
         target = pts[0]
     return newest - float(target["days_autonomy"])
+
+
+
+def _build_water_balance(
+    siar_hist: dict[str, list[dict[str, Any]]],
+    *,
+    as_of: str | None,
+) -> dict[str, Any]:
+    """Atmospheric water balance from SiAR: ET0 − P and ET0 − Pe (mm).
+
+    Positive = evaporative demand not met by rainfall (dry / irrigation-pressure day).
+    Distinct from autonomy deficit_hm3 (which applies Kc×ha).
+    """
+    empty = {
+        "available": False,
+        "as_of": as_of,
+        "note": "Sin historial SiAR para balance ET0−P.",
+        "unit": "mm",
+        "definition_es": (
+            "Balance atmosférico SiAR: ET0 − precipitación (y ET0 − Pe). "
+            "Positivo = demanda evaporativa no cubierta por lluvia. "
+            "No aplica Kc ni hectáreas (eso va en autonomía/déficit hm³)."
+        ),
+        "regional": None,
+        "by_province": [],
+    }
+    if not siar_hist:
+        return empty
+
+    by_province: list[dict[str, Any]] = []
+    for name, hist in sorted(siar_hist.items()):
+        if not hist:
+            continue
+        series: list[dict[str, Any]] = []
+        for d in hist:
+            et0 = float(d.get("et0_mm") or 0)
+            precip = float(d.get("precip_mm") or 0)
+            pe = float(d.get("pe_mm") or 0)
+            series.append(
+                {
+                    "date": d["date"],
+                    "et0_mm": _f(et0, 2),
+                    "precip_mm": _f(precip, 2),
+                    "pe_mm": _f(pe, 2),
+                    "et0_minus_p_mm": _f(et0 - precip, 2),
+                    "et0_minus_pe_mm": _f(et0 - pe, 2),
+                    "station_count": int(d.get("station_count") or 0),
+                }
+            )
+        last = series[-1]
+        tail7 = series[-7:]
+        tail30 = series[-30:]
+        sum7 = sum(float(x["et0_minus_p_mm"] or 0) for x in tail7)
+        sum30 = sum(float(x["et0_minus_p_mm"] or 0) for x in tail30)
+        sum7_pe = sum(float(x["et0_minus_pe_mm"] or 0) for x in tail7)
+        sum30_pe = sum(float(x["et0_minus_pe_mm"] or 0) for x in tail30)
+        # rough band on 7d cumulative ET0−P
+        if sum7 >= 35:
+            band = "dry"
+        elif sum7 >= 20:
+            band = "moderate"
+        elif sum7 >= 5:
+            band = "mild"
+        else:
+            band = "wet"
+        by_province.append(
+            {
+                "province_name": name,
+                "as_of": last["date"],
+                "et0_mm": last["et0_mm"],
+                "precip_mm": last["precip_mm"],
+                "pe_mm": last["pe_mm"],
+                "et0_minus_p_mm": last["et0_minus_p_mm"],
+                "et0_minus_pe_mm": last["et0_minus_pe_mm"],
+                "balance_7d_mm": _f(sum7, 1),
+                "balance_30d_mm": _f(sum30, 1),
+                "balance_7d_pe_mm": _f(sum7_pe, 1),
+                "balance_30d_pe_mm": _f(sum30_pe, 1),
+                "days_in_7d": len(tail7),
+                "days_in_30d": len(tail30),
+                "band_7d": band,
+                "series": series,
+            }
+        )
+
+    if not by_province:
+        return empty
+
+    # Regional: simple mean of provincial daily series aligned by date
+    dates = sorted({d["date"] for p in by_province for d in p["series"]})
+    series_r: list[dict[str, Any]] = []
+    for dt in dates:
+        rows = []
+        for p in by_province:
+            hit = next((x for x in p["series"] if x["date"] == dt), None)
+            if hit:
+                rows.append(hit)
+        if not rows:
+            continue
+        n = len(rows)
+        et0 = sum(float(x["et0_mm"] or 0) for x in rows) / n
+        precip = sum(float(x["precip_mm"] or 0) for x in rows) / n
+        pe = sum(float(x["pe_mm"] or 0) for x in rows) / n
+        series_r.append(
+            {
+                "date": dt,
+                "et0_mm": _f(et0, 2),
+                "precip_mm": _f(precip, 2),
+                "pe_mm": _f(pe, 2),
+                "et0_minus_p_mm": _f(et0 - precip, 2),
+                "et0_minus_pe_mm": _f(et0 - pe, 2),
+                "station_count": sum(int(x.get("station_count") or 0) for x in rows),
+            }
+        )
+    last_r = series_r[-1] if series_r else None
+    tail7 = series_r[-7:]
+    tail30 = series_r[-30:]
+    sum7 = sum(float(x["et0_minus_p_mm"] or 0) for x in tail7)
+    sum30 = sum(float(x["et0_minus_p_mm"] or 0) for x in tail30)
+    if sum7 >= 35:
+        band = "dry"
+    elif sum7 >= 20:
+        band = "moderate"
+    elif sum7 >= 5:
+        band = "mild"
+    else:
+        band = "wet"
+    regional = None
+    if last_r:
+        regional = {
+            "province_name": "Andalucía",
+            "as_of": last_r["date"],
+            "et0_mm": last_r["et0_mm"],
+            "precip_mm": last_r["precip_mm"],
+            "pe_mm": last_r["pe_mm"],
+            "et0_minus_p_mm": last_r["et0_minus_p_mm"],
+            "et0_minus_pe_mm": last_r["et0_minus_pe_mm"],
+            "balance_7d_mm": _f(sum7, 1),
+            "balance_30d_mm": _f(sum30, 1),
+            "balance_7d_pe_mm": _f(
+                sum(float(x["et0_minus_pe_mm"] or 0) for x in tail7), 1
+            ),
+            "balance_30d_pe_mm": _f(
+                sum(float(x["et0_minus_pe_mm"] or 0) for x in tail30), 1
+            ),
+            "days_in_7d": len(tail7),
+            "days_in_30d": len(tail30),
+            "band_7d": band,
+            "series": series_r,
+        }
+
+    return {
+        "available": True,
+        "as_of": as_of,
+        "note": "",
+        "unit": "mm",
+        "definition_es": empty["definition_es"],
+        "regional": regional,
+        "by_province": by_province,
+    }
 
 
 def _build_early_alerts(by_province: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -842,6 +1003,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             seen.add(key)
             deduped.append(a)
         alerts = deduped
+        water_balance = _build_water_balance(siar_hist, as_of=as_of_siar)
         compare = build_ria_siar_compare(conn, as_of=as_of_siar)
 
         return {
@@ -856,7 +1018,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "Piloto afinado. Ha Junta 2023; Kc por cultivo dominante; "
                 "excluídos sistemas urbanos explícitos (ABASTECIMIENTO Sevilla/Jaén). "
                 "Déficit 7d/30d, burn rate y alertas tempranas usan historial SiAR/embalses. "
-                "Proyección 7d con Open-Meteo ET0; comparativa RIA vs SiAR del mismo día. "
+                "Proyección 7d con Open-Meteo ET0; comparativa RIA vs SiAR; balance ET0−P SiAR (mm). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -865,6 +1027,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "thresholds": thresholds_public(),
             "projection": projection,
             "ria_siar_compare": compare,
+            "water_balance": water_balance,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

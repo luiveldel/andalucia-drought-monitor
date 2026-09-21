@@ -417,6 +417,45 @@ export interface IrrigationThresholds {
   until_critical_medium_days?: number;
 }
 
+
+export interface SiarWaterBalanceDay {
+  date: string;
+  et0_mm?: number | null;
+  precip_mm?: number | null;
+  pe_mm?: number | null;
+  et0_minus_p_mm?: number | null;
+  et0_minus_pe_mm?: number | null;
+  station_count?: number;
+}
+
+export interface SiarWaterBalanceProvince {
+  province_name: string;
+  as_of?: string | null;
+  et0_mm?: number | null;
+  precip_mm?: number | null;
+  pe_mm?: number | null;
+  et0_minus_p_mm?: number | null;
+  et0_minus_pe_mm?: number | null;
+  balance_7d_mm?: number | null;
+  balance_30d_mm?: number | null;
+  balance_7d_pe_mm?: number | null;
+  balance_30d_pe_mm?: number | null;
+  days_in_7d?: number;
+  days_in_30d?: number;
+  band_7d?: "dry" | "moderate" | "mild" | "wet" | string;
+  series?: SiarWaterBalanceDay[];
+}
+
+export interface SiarWaterBalanceSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  note?: string;
+  unit?: string;
+  definition_es?: string;
+  regional?: SiarWaterBalanceProvince | null;
+  by_province?: SiarWaterBalanceProvince[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -432,6 +471,7 @@ export interface IrrigationAutonomySnapshot {
   alerts?: IrrigationAutonomyAlert[];
   projection?: IrrigationProjectionSnapshot;
   ria_siar_compare?: RiaSiarCompareSnapshot;
+  water_balance?: SiarWaterBalanceSnapshot;
 }
 
 export interface MeteoSiarSnapshot {
