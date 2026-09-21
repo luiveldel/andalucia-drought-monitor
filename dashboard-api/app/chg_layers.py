@@ -8,7 +8,7 @@ Native CRS is typically EPSG:25830; we request EPSG:4326 for Leaflet/GeoJSON.
 WFS 2.0 GetFeature currently returns HTTP 401 on this server; use WFS 1.1.0.
 
 recintos_riego_pub has ~350k polygons — served as WMS tiles for the map;
-sistemas / balsas / patrimonio ship as simplified GeoJSON with disk cache.
+sistemas / balsas / patrimonio / dotación olivar / zonas sobreexplotadas y vulnerables ship as simplified GeoJSON with disk cache.
 """
 
 from __future__ import annotations
@@ -143,6 +143,61 @@ def _layer_catalog() -> list[dict[str, Any]]:
             "note_es": (
                 "Trazados de canales. Puede ser pesado; se simplifica y se "
                 "limita el número de tramos."
+            ),
+        },
+        {
+            "id": "dotacion_olivar",
+            "type_name": f"{CHG_WORKSPACE}:dotacion_olivar",
+            "title_es": "Dotación olivar",
+            "title_en": "Olive allotment",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/dotacion_olivar.geojson",
+            "feature_count_hint": 50,
+            "simplify": True,
+            "max_features": None,
+            "enabled_default": True,
+            "priority": 1,
+            "note_es": (
+                "Dotaciones de riego de olivar (CHG): precipitación, ETP y "
+                "volúmenes de referencia para tradicional / intensivo / "
+                "superintensivo. Contexto de asignación; no sustituye la "
+                "dotación oficial vigente."
+            ),
+        },
+        {
+            "id": "zonas_sobreexplotadas",
+            "type_name": f"{CHG_WORKSPACE}:zonas_sobreexplotadas",
+            "title_es": "Zonas sobreexplotadas",
+            "title_en": "Overexploited zones",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/zonas_sobreexplotadas.geojson",
+            "feature_count_hint": 7,
+            "simplify": True,
+            "max_features": None,
+            "enabled_default": False,
+            "priority": 2,
+            "note_es": (
+                "Masas / zonas declaradas sobreexplotadas en el ámbito CHG "
+                "(pocos polígonos; geometrías simplificadas). Útil junto al "
+                "plan Doñana para contexto de presión hídrica en Huelva–Sevilla, "
+                "sin confundir con la zonificación REDIAM."
+            ),
+        },
+        {
+            "id": "zonas_vulnerables",
+            "type_name": f"{CHG_WORKSPACE}:zonas_vulnerables",
+            "title_es": "Zonas vulnerables (nitratos)",
+            "title_en": "Vulnerable zones (nitrates)",
+            "render": "geojson",
+            "endpoint": "/api/gis/chg/zonas_vulnerables.geojson",
+            "feature_count_hint": 15,
+            "simplify": True,
+            "max_features": None,
+            "enabled_default": False,
+            "priority": 2,
+            "note_es": (
+                "Zonas vulnerables a la contaminación por nitratos (CHG). "
+                "Geometrías densas: se simplifican para el mapa web."
             ),
         },
     ]
@@ -612,6 +667,7 @@ def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[s
             "sistemas_explotacion",
             "patrimonio_zonas_regables",
             "balsas",
+            "zonas_sobreexplotadas",
         ):
             try:
                 payload = fetch_layer_geojson(L["id"])
@@ -639,9 +695,11 @@ def build_chg_layers_snapshot(*, include_inline_geojson: bool = False) -> dict[s
         "fetched_at": None,
         "lazy": True,
         "note_es": (
-            "Capas abiertas de la Confederación Hidrográfica del Guadalquivir. "
-            "El dashboard solo expone metadatos; el mapa carga WMS/GeoJSON bajo demanda "
-            "con caché en disco (TTL 24 h) para no martillar el GeoServer."
+            "Capas abiertas de la Confederación Hidrográfica del Guadalquivir "
+            "(sistemas, recintos WMS, balsas, dotación olivar, zonas "
+            "sobreexplotadas/vulnerables). El dashboard solo expone metadatos; "
+            "el mapa carga WMS/GeoJSON bajo demanda con caché en disco "
+            "(TTL 24 h) para no martillar el GeoServer."
         ),
         "caveats_es": caveats_es(),
         "layers": layers_out,

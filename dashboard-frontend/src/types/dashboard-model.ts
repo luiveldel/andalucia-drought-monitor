@@ -1018,7 +1018,7 @@ export interface ChgLayerMeta {
   type_name?: string;
   title_es?: string;
   title_en?: string;
-  render?: "geojson" | "wms" | string;
+  render?: "geojson" | "wms" | "catalog-link" | string;
   endpoint?: string;
   feature_count_hint?: number | null;
   enabled_default?: boolean;
@@ -1051,6 +1051,49 @@ export interface ChgLayersSnapshot {
   layers?: ChgLayerMeta[];
 }
 
+export interface OpenLayerLink {
+  label_es?: string;
+  url?: string;
+}
+
+export interface OpenLayerMeta {
+  id: string;
+  provider?: string;
+  title_es?: string;
+  title_en?: string;
+  render?: "geojson" | "wms" | "catalog-link" | string;
+  endpoint?: string | null;
+  feature_count_hint?: number | null;
+  enabled_default?: boolean;
+  priority?: number;
+  note_es?: string;
+  geographic_scope_es?: string;
+  highlight_provinces?: string[];
+  wms?: ChgLayerWmsConfig | null;
+  links?: OpenLayerLink[];
+  caveats_es?: string[];
+  attribution?: string;
+}
+
+export interface OpenLayersSnapshot {
+  available: boolean;
+  provider?: string;
+  attribution?: string;
+  attribution_html?: string;
+  lazy?: boolean;
+  as_of?: string | null;
+  fetched_at?: string | null;
+  note_es?: string;
+  caveats_es?: string[];
+  rejected_sources_es?: string[];
+  layers?: OpenLayerMeta[];
+  groups?: {
+    rediam?: string[];
+    icra?: string[];
+    chg_extras?: string[];
+  };
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -1078,6 +1121,7 @@ export interface IrrigationAutonomySnapshot {
   intraday_heat?: IntradayHeatSnapshot;
   station_reservoir_links?: StationReservoirLinksSnapshot;
   chg_layers?: ChgLayersSnapshot;
+  open_layers?: OpenLayersSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

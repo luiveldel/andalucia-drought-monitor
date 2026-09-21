@@ -181,6 +181,20 @@ def _empty() -> dict[str, Any]:
             "caveats_es": [],
             "layers": [],
         },
+        "open_layers": {
+            "available": False,
+            "provider": "REDIAM / ICRA",
+            "attribution": "",
+            "attribution_html": "",
+            "lazy": True,
+            "as_of": None,
+            "fetched_at": None,
+            "note_es": "",
+            "caveats_es": [],
+            "rejected_sources_es": [],
+            "layers": [],
+            "groups": {"rediam": [], "icra": [], "chg_extras": []},
+        },
         "campaign_compare": {
             "available": False,
             "campaign": {"label_es": "Campaña agrícola abr–sep", "start_month": 4, "start_day": 1, "end_month": 9, "end_day": 30},
@@ -1158,6 +1172,12 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 — never break autonomy payload
             chg_layers = empty.get("chg_layers") or {"available": False, "layers": []}
         try:
+            from app.open_irrigation_layers import build_open_layers_snapshot
+
+            open_layers = build_open_layers_snapshot()
+        except Exception:  # noqa: BLE001 — never break autonomy payload
+            open_layers = empty.get("open_layers") or {"available": False, "layers": []}
+        try:
             intraday_heat = build_intraday_heat(conn, lookback_days=2)
         except Exception:  # noqa: BLE001 — never break autonomy payload
             intraday_heat = empty.get("intraday_heat") or {"available": False}
@@ -1192,7 +1212,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); capas abiertas CHG (sistemas explotación / recintos riego WMS); olas de calor intradía (SiAR horario o proxy Open-Meteo). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); capas abiertas CHG (sistemas, recintos WMS, dotación olivar, zonas sobreexplotadas/vulnerables) + REDIAM Doñana WMS e ICRA archivo; olas de calor intradía (SiAR horario o proxy Open-Meteo). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1213,6 +1233,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "station_reservoir_links": station_reservoir_links,
             "intraday_heat": intraday_heat,
             "chg_layers": chg_layers,
+            "open_layers": open_layers,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

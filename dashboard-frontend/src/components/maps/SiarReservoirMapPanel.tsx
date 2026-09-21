@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type {
   ChgLayersSnapshot,
   IrrigationAutonomySnapshot,
+  OpenLayersSnapshot,
   StationReservoirLink,
   StationReservoirLinksSnapshot,
   StationReservoirMarker,
@@ -32,6 +33,8 @@ const ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO';
 const CHG_ATTR =
   '&copy; <a href="https://www.chguadalquivir.es/" target="_blank" rel="noopener">CHG</a> IDE-CHG';
+const REDIAM_ATTR =
+  '&copy; <a href="https://www.juntadeandalucia.es/medioambiente/site/rediam" target="_blank" rel="noopener">REDIAM</a> / Junta de Andalucía';
 
 type ChgGeoPayload = {
   available?: boolean;
@@ -94,16 +97,34 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
   const t = useT();
   const snap: StationReservoirLinksSnapshot | undefined = props.autonomy.station_reservoir_links;
   const chg: ChgLayersSnapshot | undefined = props.autonomy.chg_layers;
+  const openLayers: OpenLayersSnapshot | undefined = props.autonomy.open_layers;
   const [filterSystem, setFilterSystem] = useState<string>("");
   const [showCaveats, setShowCaveats] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [showSistemas, setShowSistemas] = useState(true);
   const [showRecintos, setShowRecintos] = useState(false);
   const [showBalsas, setShowBalsas] = useState(false);
+  const [showDotacionOlivar, setShowDotacionOlivar] = useState(true);
+  const [showSobreexplotadas, setShowSobreexplotadas] = useState(false);
+  const [showVulnerables, setShowVulnerables] = useState(false);
+  // Doñana REDIAM: ON by default — highlighted for Huelva–Sevilla
+  const [showDonana, setShowDonana] = useState(true);
   const [sistemasFc, setSistemasFc] = useState<FeatureCollection | null>(null);
   const [balsasFc, setBalsasFc] = useState<FeatureCollection | null>(null);
+  const [dotacionFc, setDotacionFc] = useState<FeatureCollection | null>(null);
+  const [sobreFc, setSobreFc] = useState<FeatureCollection | null>(null);
+  const [vulnFc, setVulnFc] = useState<FeatureCollection | null>(null);
   const [chgStatus, setChgStatus] = useState<string>("");
   const [chgFetchedAt, setChgFetchedAt] = useState<string | null>(null);
+
+  const donanaMeta = useMemo(
+    () => (openLayers?.layers ?? []).find((l) => l.id === "donana_plan_regadios"),
+    [openLayers],
+  );
+  const icraMeta = useMemo(
+    () => (openLayers?.layers ?? []).find((l) => l.id === "icra_download"),
+    [openLayers],
+  );
 
   const chgWms = useMemo(() => {
     const rec = (chg?.layers ?? []).find((l) => l.id === "recintos_riego_pub");
@@ -116,6 +137,17 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
       attribution: CHG_ATTR,
     };
   }, [chg]);
+
+  const donanaWms = useMemo(() => {
+    return donanaMeta?.wms ?? {
+      url: "/api/gis/open/rediam/donana.wms",
+      layers: "Ambito_plan,Zona_A,Corredor_ecologico",
+      format: "image/png",
+      transparent: true,
+      version: "1.1.1",
+      attribution: REDIAM_ATTR,
+    };
+  }, [donanaMeta]);
 
   useEffect(() => {
     if (!showSistemas) return;
@@ -158,6 +190,52 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
       alive = false;
     };
   }, [showBalsas]);
+
+  useEffect(() => {
+    if (!showDotacionOlivar) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("dotacion_olivar");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setDotacionFc(payload.feature_collection);
+        setChgFetchedAt(payload.fetched_at ?? null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showDotacionOlivar]);
+
+  useEffect(() => {
+    if (!showSobreexplotadas) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("zonas_sobreexplotadas");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setSobreFc(payload.feature_collection);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showSobreexplotadas]);
+
+  useEffect(() => {
+    if (!showVulnerables) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("zonas_vulnerables");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setVulnFc(payload.feature_collection);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showVulnerables]);
 
   const systems = useMemo(() => {
     const names = new Set<string>();
@@ -282,50 +360,129 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
             </span>
           </div>
 
-          {chg?.available !== false ? (
-            <div className="space-y-2 rounded-md border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]">
-              <p className="text-xs font-medium text-ink dark:text-ink-dark">
-                {es ? "Capas CHG (abiertas)" : "CHG open layers"}
-              </p>
-              <div className="flex flex-wrap gap-4 text-xs text-muted dark:text-muted-dark">
-                <label className="inline-flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={showSistemas}
-                    onChange={(e) => setShowSistemas(e.target.checked)}
-                  />
-                  {es ? "Sistemas de explotación" : "Exploitation systems"}
-                </label>
-                <label className="inline-flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={showRecintos}
-                    onChange={(e) => setShowRecintos(e.target.checked)}
-                  />
-                  {es ? "Recintos de riego (WMS)" : "Irrigation parcels (WMS)"}
-                </label>
-                <label className="inline-flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={showBalsas}
-                    onChange={(e) => setShowBalsas(e.target.checked)}
-                  />
-                  {es ? "Balsas" : "Ponds"}
-                </label>
-              </div>
-              <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
-                {chg?.note_es ||
-                  (es
-                    ? "Fuente: IDE-CHG / datos.gob.es. Geometrías simplificadas (~500 m). Los recintos (~349 mil) se pintan por WMS para no saturar el navegador."
-                    : "Source: IDE-CHG / datos.gob.es. Simplified geometries (~500 m). Parcels (~349k) are drawn via WMS to avoid browser overload.")}
-                {chgFetchedAt ? (
-                  <span className="ml-1 opacity-80">
-                    · {es ? "caché" : "cache"} {chgFetchedAt}
-                  </span>
-                ) : null}
-              </p>
-              {chgStatus ? (
-                <p className="text-[11px] text-muted dark:text-muted-dark">{chgStatus}</p>
+          {chg?.available !== false || openLayers?.available !== false ? (
+            <div className="space-y-3 rounded-md border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              {/* Doñana first-class — Huelva / Sevilla */}
+              {openLayers?.available !== false && donanaMeta ? (
+                <div className="space-y-1.5 rounded border border-emerald-700/20 bg-emerald-700/[0.06] p-2 dark:border-emerald-400/20 dark:bg-emerald-400/[0.08]">
+                  <p className="text-xs font-medium text-ink dark:text-ink-dark">
+                    {es ? "Doñana (Huelva–Sevilla) · REDIAM" : "Doñana (Huelva–Seville) · REDIAM"}
+                  </p>
+                  <label className="inline-flex items-center gap-1.5 text-xs text-muted dark:text-muted-dark">
+                    <input
+                      type="checkbox"
+                      checked={showDonana}
+                      onChange={(e) => setShowDonana(e.target.checked)}
+                    />
+                    {es ? "Plan regadíos Doñana" : "Doñana irrigation plan"}
+                  </label>
+                  <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
+                    {donanaMeta.geographic_scope_es ||
+                      (es
+                        ? "Ámbito del Plan Especial al norte de la corona forestal; no es el inventario ICRA completo. Fuente: REDIAM / Junta de Andalucía."
+                        : "Special Plan area north of the forest crown; not the full ICRA inventory. Source: REDIAM / Junta de Andalucía.")}
+                  </p>
+                </div>
+              ) : null}
+
+              {chg?.available !== false ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-ink dark:text-ink-dark">
+                    {es ? "Capas CHG (abiertas)" : "CHG open layers"}
+                  </p>
+                  <div className="flex flex-wrap gap-4 text-xs text-muted dark:text-muted-dark">
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showSistemas}
+                        onChange={(e) => setShowSistemas(e.target.checked)}
+                      />
+                      {es ? "Sistemas de explotación" : "Exploitation systems"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showDotacionOlivar}
+                        onChange={(e) => setShowDotacionOlivar(e.target.checked)}
+                      />
+                      {es ? "Dotación olivar" : "Olive allotment"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showSobreexplotadas}
+                        onChange={(e) => setShowSobreexplotadas(e.target.checked)}
+                      />
+                      {es ? "Zonas sobreexplotadas" : "Overexploited zones"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showVulnerables}
+                        onChange={(e) => setShowVulnerables(e.target.checked)}
+                      />
+                      {es ? "Zonas vulnerables" : "Vulnerable zones"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showRecintos}
+                        onChange={(e) => setShowRecintos(e.target.checked)}
+                      />
+                      {es ? "Recintos de riego (WMS)" : "Irrigation parcels (WMS)"}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={showBalsas}
+                        onChange={(e) => setShowBalsas(e.target.checked)}
+                      />
+                      {es ? "Balsas" : "Ponds"}
+                    </label>
+                  </div>
+                  <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
+                    {chg?.note_es ||
+                      (es
+                        ? "Fuente: IDE-CHG / datos.gob.es. Geometrías simplificadas (~500 m)."
+                        : "Source: IDE-CHG / datos.gob.es. Simplified geometries (~500 m).")}
+                    {chgFetchedAt ? (
+                      <span className="ml-1 opacity-80">
+                        · {es ? "caché" : "cache"} {chgFetchedAt}
+                      </span>
+                    ) : null}
+                  </p>
+                  {chgStatus ? (
+                    <p className="text-[11px] text-muted dark:text-muted-dark">{chgStatus}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {icraMeta ? (
+                <div className="space-y-1 border-t border-black/5 pt-2 dark:border-white/5">
+                  <p className="text-xs font-medium text-ink dark:text-ink-dark">
+                    {es ? "ICRA (archivo, no mapa en vivo)" : "ICRA (archive, not a live map)"}
+                  </p>
+                  <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
+                    {icraMeta.note_es ||
+                      (es
+                        ? "Inventario histórico 2002/2008: solo descarga en portalrediam; no son cuotas operativas."
+                        : "Historical 2002/2008 inventory: download-only from portalrediam; not operational quotas.")}
+                  </p>
+                  <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                    {(icraMeta.links ?? []).map((lnk) => (
+                      <li key={lnk.url}>
+                        <a
+                          className="text-terracotta underline-offset-2 hover:underline dark:text-terracotta-dark"
+                          href={lnk.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {lnk.label_es || lnk.url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -337,10 +494,43 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
             scrollWheelZoom={false}
           >
             <TileLayer
-              attribution={showRecintos || showSistemas || showBalsas ? `${ATTR} | ${CHG_ATTR}` : ATTR}
+              attribution={
+                showDonana ||
+                showRecintos ||
+                showSistemas ||
+                showBalsas ||
+                showDotacionOlivar ||
+                showSobreexplotadas ||
+                showVulnerables
+                  ? `${ATTR}${showDonana ? ` | ${REDIAM_ATTR}` : ""}${
+                      showRecintos ||
+                      showSistemas ||
+                      showBalsas ||
+                      showDotacionOlivar ||
+                      showSobreexplotadas ||
+                      showVulnerables
+                        ? ` | ${CHG_ATTR}`
+                        : ""
+                    }`
+                  : ATTR
+              }
               url={TILE}
               subdomains="abcd"
             />
+            {showDonana ? (
+              <WMSTileLayer
+                url={donanaWms.url}
+                params={{
+                  layers: donanaWms.layers,
+                  format: donanaWms.format || "image/png",
+                  transparent: donanaWms.transparent !== false,
+                  version: donanaWms.version || "1.1.1",
+                }}
+                opacity={0.6}
+                attribution={REDIAM_ATTR}
+                zIndex={350}
+              />
+            ) : null}
             {showRecintos ? (
               <WMSTileLayer
                 url={chgWms.url}
@@ -397,6 +587,73 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
                 onEachFeature={(feat, layer) => {
                   const p = (feat.properties || {}) as { nom_balsa?: string; cod_balsa?: string };
                   layer.bindTooltip(p.nom_balsa || p.cod_balsa || "Balsa");
+                }}
+              />
+            ) : null}
+            {showDotacionOlivar && dotacionFc ? (
+              <GeoJSON
+                key={`dotacion-${dotacionFc.features?.length ?? 0}`}
+                data={dotacionFc}
+                style={() => ({
+                  color: "#854d0e",
+                  weight: 1,
+                  fillColor: "#ca8a04",
+                  fillOpacity: 0.28,
+                })}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as {
+                    pre?: number;
+                    etp?: number;
+                    tradicional?: number;
+                    intensivo?: number;
+                    superintensivo?: number;
+                  };
+                  const bits = [
+                    p.tradicional != null ? `trad. ${p.tradicional}` : null,
+                    p.intensivo != null ? `int. ${p.intensivo}` : null,
+                    p.superintensivo != null ? `superint. ${p.superintensivo}` : null,
+                    p.pre != null ? `P ${p.pre}` : null,
+                    p.etp != null ? `ETP ${p.etp}` : null,
+                  ].filter(Boolean);
+                  layer.bindTooltip(`Dotación olivar${bits.length ? `: ${bits.join(" · ")}` : ""}`);
+                }}
+              />
+            ) : null}
+            {showSobreexplotadas && sobreFc ? (
+              <GeoJSON
+                key={`sobre-${sobreFc.features?.length ?? 0}`}
+                data={sobreFc}
+                style={() => ({
+                  color: "#9f1239",
+                  weight: 2,
+                  fillColor: "#e11d48",
+                  fillOpacity: 0.22,
+                })}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as {
+                    nom_zsobr?: string;
+                    tipo_zsobr?: string;
+                  };
+                  layer.bindTooltip(
+                    `${p.nom_zsobr || "Zona sobreexplotada"}${p.tipo_zsobr ? ` (${p.tipo_zsobr})` : ""}`,
+                  );
+                }}
+              />
+            ) : null}
+            {showVulnerables && vulnFc ? (
+              <GeoJSON
+                key={`vuln-${vulnFc.features?.length ?? 0}`}
+                data={vulnFc}
+                style={() => ({
+                  color: "#6b21a8",
+                  weight: 1.5,
+                  fillColor: "#a855f7",
+                  fillOpacity: 0.18,
+                  dashArray: "4 3",
+                })}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as { nom_zprot?: string; euzprotcod?: string };
+                  layer.bindTooltip(p.nom_zprot || p.euzprotcod || "Zona vulnerable");
                 }}
               />
             ) : null}
@@ -511,6 +768,9 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
               ))}
               {(chg?.caveats_es ?? []).map((c) => (
                 <li key={`chg-${c}`}>{c}</li>
+              ))}
+              {(openLayers?.caveats_es ?? []).map((c) => (
+                <li key={`open-${c}`}>{c}</li>
               ))}
             </ul>
           ) : null}

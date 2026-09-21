@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.db import get_engine, load_dashboard_data
 from app.spi_gis import (
@@ -142,6 +142,38 @@ def gis_chg_layer_geojson(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+@app.get("/api/gis/open/layers")
+def gis_open_layers() -> dict:
+    """Catálogo REDIAM / ICRA + puntero a extras CHG (metadatos; sin red)."""
+    try:
+        from app.open_irrigation_layers import build_open_layers_snapshot
+
+        return jsonable_encoder(build_open_layers_snapshot())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/gis/open/rediam/donana.wms")
+def gis_rediam_donana_wms(request: Request) -> Response:
+    """Proxy WMS GetMap/GetCapabilities hacia REDIAM Doñana (reintentos TLS)."""
+    try:
+        from app.open_irrigation_layers import proxy_rediam_wms_bytes
+
+        # Flatten query: take first value per key (Leaflet WMS params).
+        q: dict[str, str] = {}
+        for k, v in request.query_params.multi_items():
+            q[k] = v
+        body, ctype = proxy_rediam_wms_bytes(q)
+        return Response(content=body, media_type=ctype)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"REDIAM WMS no disponible: {e}",
+        ) from e
+
 
 @app.get("/api/meteo/forecast")
 def get_meteo_forecast(

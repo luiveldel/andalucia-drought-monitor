@@ -115,9 +115,15 @@ def test_snapshot_metadata_no_network():
     ids = {L["id"] for L in snap["layers"]}
     assert "sistemas_explotacion" in ids
     assert "recintos_riego_pub" in ids
+    assert "dotacion_olivar" in ids
+    assert "zonas_sobreexplotadas" in ids
+    assert "zonas_vulnerables" in ids
     rec = next(L for L in snap["layers"] if L["id"] == "recintos_riego_pub")
     assert rec["render"] == "wms"
     assert rec["wms"]["layers"].endswith("recintos_riego_pub")
+    oliv = next(L for L in snap["layers"] if L["id"] == "dotacion_olivar")
+    assert oliv["render"] == "geojson"
+    assert oliv["enabled_default"] is True
     assert "CHG" in snap["attribution"]
     assert len(snap["caveats_es"]) >= 3
 
