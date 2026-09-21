@@ -143,7 +143,6 @@ export function DashboardPage() {
             <SectionHeader title={t("section.provinces")} description={t("section.provinces.desc")} />
             <div className="mt-3 space-y-4">
               <ProvinceStatusGrid provinces={data.provinces} />
-              <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
               <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
             </div>
           </section>
