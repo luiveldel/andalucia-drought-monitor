@@ -940,6 +940,68 @@ export interface StationReservoirLinksSnapshot {
   };
 }
 
+
+export interface IntradayHeatHour {
+  date?: string;
+  time?: string;
+  hour_label?: string;
+  temp_c?: number | null;
+  humidity_pct?: number | null;
+  et0_mm?: number | null;
+  radiation?: number | null;
+  stations?: number | null;
+  heat_stress?: boolean;
+  elevated_heat?: boolean;
+}
+
+export interface IntradayHeatScope {
+  province_name: string;
+  location_label?: string;
+  hours_total?: number;
+  heat_hours?: number;
+  elevated_hours?: number;
+  temp_mean_c?: number | null;
+  temp_peak_c?: number | null;
+  peak_minus_mean_c?: number | null;
+  et0_sum_mm?: number | null;
+  radiation_mean?: number | null;
+  by_day?: Array<{
+    date: string;
+    hours?: number;
+    heat_hours?: number;
+    elevated_hours?: number;
+    temp_mean_c?: number | null;
+    temp_peak_c?: number | null;
+  }>;
+  series?: IntradayHeatHour[];
+  plain_es?: string;
+  plain_en?: string;
+}
+
+export interface IntradayHeatSnapshot {
+  available: boolean;
+  source?: string;
+  source_label_es?: string;
+  attribution?: string;
+  as_of?: string | null;
+  days?: number;
+  grain?: string;
+  thresholds?: {
+    heat_temp_c?: number;
+    heat_rh_pct?: number;
+    elevated_temp_c?: number;
+  };
+  definition_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  siar_ready?: boolean;
+  siar_table?: string;
+  headline_es?: string;
+  headline_en?: string;
+  regional?: IntradayHeatScope | null;
+  by_province?: IntradayHeatScope[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -964,6 +1026,7 @@ export interface IrrigationAutonomySnapshot {
   siar_by_system?: SiarBySystemSnapshot;
   campaign_compare?: CampaignCompareSnapshot;
   climate_percentiles?: ClimatePercentilesSnapshot;
+  intraday_heat?: IntradayHeatSnapshot;
   station_reservoir_links?: StationReservoirLinksSnapshot;
 }
 

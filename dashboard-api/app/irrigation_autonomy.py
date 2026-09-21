@@ -208,6 +208,25 @@ def _empty() -> dict[str, Any]:
             "regional": None,
             "by_province": [],
         },
+        "intraday_heat": {
+            "available": False,
+            "source": "none",
+            "source_label_es": "",
+            "attribution": "",
+            "as_of": None,
+            "days": 0,
+            "grain": "hourly",
+            "thresholds": {"heat_temp_c": 35.0, "heat_rh_pct": 30.0, "elevated_temp_c": 32.0},
+            "definition_es": "",
+            "note_es": "",
+            "caveats_es": [],
+            "siar_ready": False,
+            "siar_table": "raw.raw_siar_clima_horario",
+            "headline_es": "",
+            "headline_en": "",
+            "regional": None,
+            "by_province": [],
+        },
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -1109,10 +1128,15 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         from app.campaign_compare import build_campaign_compare
         from app.climate_percentiles import build_climate_percentiles
         from app.station_reservoir_links import build_station_reservoir_links
+        from app.intraday_heat import build_intraday_heat
 
         campaign_compare = build_campaign_compare(conn, as_of=as_of_siar)
         climate_percentiles = build_climate_percentiles(conn, as_of=as_of_siar)
         station_reservoir_links = build_station_reservoir_links(conn)
+        try:
+            intraday_heat = build_intraday_heat(conn, lookback_days=2)
+        except Exception:  # noqa: BLE001 — never break autonomy payload
+            intraday_heat = empty.get("intraday_heat") or {"available": False}
         spi_snap = None
         try:
             from app.spi_gis import load_spi_latest
@@ -1144,7 +1168,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); olas de calor intradía (SiAR horario o proxy Open-Meteo). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1163,6 +1187,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "campaign_compare": campaign_compare,
             "climate_percentiles": climate_percentiles,
             "station_reservoir_links": station_reservoir_links,
+            "intraday_heat": intraday_heat,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

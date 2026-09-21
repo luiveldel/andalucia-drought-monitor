@@ -23,6 +23,7 @@ import { EffectivePrecipPanel } from "@/components/climate/EffectivePrecipPanel"
 import { SiarBySystemPanel } from "@/components/climate/SiarBySystemPanel";
 import { CampaignComparePanel } from "@/components/climate/CampaignComparePanel";
 import { ClimatePercentilesPanel } from "@/components/climate/ClimatePercentilesPanel";
+import { IntradayHeatPanel } from "@/components/climate/IntradayHeatPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -163,6 +164,7 @@ export function DashboardPage() {
                   scopeLabel={climateProvince}
                 />
                 <HeatStressPanel heatStress={data.heatStress} />
+                <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
                 <ExploitationSystemsPanel systems={data.exploitationSystems} />
                 <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
                 <SpiPanel spi={data.spi} />
@@ -186,6 +188,7 @@ export function DashboardPage() {
             <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <EffectivePrecipPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <CropEtcPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
             <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
