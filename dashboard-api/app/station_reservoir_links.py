@@ -80,12 +80,33 @@ def _caveats() -> list[str]:
 
 
 def parse_siar_coord(raw: Any, *, is_lon: bool = False) -> float | None:
-    """Parse SiAR Latitud/Longitud (decimal or DMS with N/S/E/O/W)."""
+    """Parse SiAR Latitud/Longitud (decimal, DMS, or packed DDMMSSmmm+hemi).
+
+    MAPA often returns packed strings like ``365007000N`` / ``022408000W``
+    (= 36°50′07.000″ N / 2°24′08.000″ W).
+    """
     if raw is None:
         return None
     s = str(raw).strip()
     if not s:
         return None
+
+    # Packed DDMMSSmmm + hemisphere (no separators) — common in SiAR catalog.
+    packed = re.fullmatch(
+        r"(\d{2,3})(\d{2})(\d{2})(\d{3})([NnSsEeOoWw])",
+        s.replace(" ", ""),
+    )
+    if packed:
+        deg = int(packed.group(1))
+        minutes = int(packed.group(2))
+        seconds = int(packed.group(3))
+        millis = int(packed.group(4))
+        hemi = packed.group(5).upper()
+        val = deg + minutes / 60.0 + (seconds + millis / 1000.0) / 3600.0
+        if hemi in ("S", "W", "O"):
+            val = -val
+        return val
+
     try:
         v = float(s.replace(",", "."))
         if abs(v) <= 180:
@@ -200,21 +221,44 @@ def _load_stations(conn: Connection) -> tuple[str | None, list[dict[str, Any]]]:
         """,
     )
     as_of = (latest[0].get("d") if latest else None) or None
-    rows = _rows(
-        conn,
-        """
-        SELECT DISTINCT ON (codigo_estacion)
-            TRIM(codigo_estacion) AS station_code,
-            NULLIF(TRIM(nombre_estacion), '') AS station_name,
-            NULLIF(TRIM(provincia_nombre), '') AS province_name,
-            latitud_raw,
-            longitud_raw
-        FROM raw.raw_siar_clima_diario
-        WHERE ccaa_codigo = 'AND'
-          AND TRIM(COALESCE(codigo_estacion, '')) <> ''
-        ORDER BY codigo_estacion, fecha DESC NULLS LAST
-        """,
-    )
+    rows: list[dict[str, Any]] = []
+    try:
+        rows = _rows(
+            conn,
+            """
+            SELECT
+                TRIM(codigo_estacion) AS station_code,
+                NULLIF(TRIM(nombre_estacion), '') AS station_name,
+                NULLIF(TRIM(provincia_nombre), '') AS province_name,
+                latitud_raw,
+                longitud_raw
+            FROM raw.raw_siar_estaciones
+            WHERE ccaa_codigo = 'AND'
+              AND TRIM(COALESCE(codigo_estacion, '')) <> ''
+            """,
+        )
+    except Exception:
+        rows = []
+    if not rows:
+        rows = _rows(
+            conn,
+            """
+            SELECT DISTINCT ON (codigo_estacion)
+                TRIM(codigo_estacion) AS station_code,
+                NULLIF(TRIM(nombre_estacion), '') AS station_name,
+                NULLIF(TRIM(provincia_nombre), '') AS province_name,
+                latitud_raw,
+                longitud_raw
+            FROM raw.raw_siar_clima_diario
+            WHERE ccaa_codigo = 'AND'
+              AND TRIM(COALESCE(codigo_estacion, '')) <> ''
+            ORDER BY
+                codigo_estacion,
+                (NULLIF(TRIM(latitud_raw), '') IS NULL),
+                (NULLIF(TRIM(longitud_raw), '') IS NULL),
+                fecha DESC NULLS LAST
+            """,
+        )
     stations: list[dict[str, Any]] = []
     for r in rows:
         lat = parse_siar_coord(r.get("latitud_raw"), is_lon=False)

@@ -131,3 +131,11 @@ if __name__ == "__main__":
     test_haversine_zero()
     test_link_nearest_and_fallback()
     print("OK")
+
+def test_parse_siar_coord_packed_dms():
+    from app.station_reservoir_links import parse_siar_coord
+
+    assert abs(parse_siar_coord("365007000N") - 36.83527777777778) < 1e-6
+    assert abs(parse_siar_coord("022408000W", is_lon=True) - (-2.402222222222222)) < 1e-6
+    assert abs(parse_siar_coord("370528000N") - 37.09111111111111) < 1e-6
+
