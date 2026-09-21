@@ -96,6 +96,7 @@ def dag_() -> None:
 dag_()
 
 
+# SiAR hourly ingest: ENABLED in lavd-airflow-dags (task ingest_siar_clima_hourly). Local stub kept for reference.
 # Optional SiAR hourly ingest (olas de calor intradía):
 # Enable when SIAR_API_KEY is present and quota allows.
 #
