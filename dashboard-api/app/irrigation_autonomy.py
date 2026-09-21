@@ -182,6 +182,32 @@ def _empty() -> dict[str, Any]:
             "years": [],
             "comparisons": [],
         },
+        "climate_percentiles": {
+            "available": False,
+            "as_of": None,
+            "current_year": None,
+            "through_doy": None,
+            "unit_depth": "mm",
+            "unit_demand": "hm3",
+            "formula_es": "",
+            "note_es": "",
+            "caveats_es": [],
+            "method_es": "",
+            "coverage": {
+                "siar_years": [],
+                "ria_proxy_years": [],
+                "siar_min_fecha": None,
+                "siar_max_fecha": None,
+                "ria_min_fecha": None,
+                "ria_max_fecha": None,
+                "n_years_total": 0,
+                "confidence": "none",
+            },
+            "headline_es": "",
+            "headline_en": "",
+            "regional": None,
+            "by_province": [],
+        },
         "method_es": (
             "Días de autonomía ≈ volumen embalsado (sin sistemas urbanos explícitos) "
             "÷ demanda diaria (Kc_provincial × max(0, ET0_SiAR − Pe_SiAR) mm × ha × 1e-5). "
@@ -1081,9 +1107,11 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             as_of_siar=as_of_siar,
         )
         from app.campaign_compare import build_campaign_compare
+        from app.climate_percentiles import build_climate_percentiles
         from app.station_reservoir_links import build_station_reservoir_links
 
         campaign_compare = build_campaign_compare(conn, as_of=as_of_siar)
+        climate_percentiles = build_climate_percentiles(conn, as_of=as_of_siar)
         station_reservoir_links = build_station_reservoir_links(conn)
         spi_snap = None
         try:
@@ -1116,7 +1144,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1133,6 +1161,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "effective_precip": effective_precip,
             "siar_by_system": siar_by_system,
             "campaign_compare": campaign_compare,
+            "climate_percentiles": climate_percentiles,
             "station_reservoir_links": station_reservoir_links,
         }
     except Exception as exc:  # noqa: BLE001

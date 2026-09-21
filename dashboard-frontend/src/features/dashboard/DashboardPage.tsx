@@ -22,6 +22,7 @@ import { CropEtcPanel } from "@/components/climate/CropEtcPanel";
 import { EffectivePrecipPanel } from "@/components/climate/EffectivePrecipPanel";
 import { SiarBySystemPanel } from "@/components/climate/SiarBySystemPanel";
 import { CampaignComparePanel } from "@/components/climate/CampaignComparePanel";
+import { ClimatePercentilesPanel } from "@/components/climate/ClimatePercentilesPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -189,6 +190,7 @@ export function DashboardPage() {
             <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
             <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
             <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <ClimatePercentilesPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
@@ -215,6 +217,7 @@ export function DashboardPage() {
             </div>
             <RiaSiarComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
             <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <ClimatePercentilesPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
           </div>
         ) : null}
 

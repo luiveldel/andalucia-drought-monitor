@@ -805,6 +805,83 @@ export interface CampaignCompareSnapshot {
 }
 
 
+
+export interface ClimatePercentileMetric {
+  current?: number | null;
+  mean_available?: number | null;
+  p10?: number | null;
+  p50?: number | null;
+  p90?: number | null;
+  percentile_rank?: number | null;
+  n_years?: number;
+  n_samples?: number;
+  confidence?: "ok" | "low" | "very_low" | "none" | string;
+  unit?: string;
+  samples?: {
+    year: number;
+    value?: number | null;
+    source?: string;
+    date?: string | null;
+    doy_offset_days?: number;
+    is_current?: boolean;
+    window_start?: string | null;
+    window_end?: string | null;
+    days_with_data?: number;
+  }[];
+  plain_es?: string;
+  plain_en?: string;
+}
+
+export interface ClimatePercentilesScope {
+  province_name: string;
+  irrigated_ha?: number;
+  kc?: number | null;
+  source_current?: string | null;
+  same_doy?: {
+    date_label?: string;
+    date_used?: string | null;
+    doy_window_half_days?: number;
+    et0?: ClimatePercentileMetric;
+    net_demand_mm?: ClimatePercentileMetric;
+  };
+  campaign_to_date?: {
+    window_label_es?: string;
+    et0_cum?: ClimatePercentileMetric;
+    net_demand_mm_cum?: ClimatePercentileMetric;
+    demand_hm3_cum?: ClimatePercentileMetric;
+  };
+  headline_es?: string;
+  headline_en?: string;
+}
+
+export interface ClimatePercentilesSnapshot {
+  available: boolean;
+  as_of?: string | null;
+  current_year?: number | null;
+  through_doy?: { month?: number; day?: number; label?: string } | null;
+  unit_depth?: string;
+  unit_demand?: string;
+  formula_es?: string;
+  note_es?: string;
+  caveats_es?: string[];
+  method_es?: string;
+  coverage?: {
+    siar_years?: number[];
+    ria_proxy_years?: number[];
+    siar_min_fecha?: string | null;
+    siar_max_fecha?: string | null;
+    ria_min_fecha?: string | null;
+    ria_max_fecha?: string | null;
+    n_years_total?: number;
+    confidence?: string;
+  };
+  headline_es?: string;
+  headline_en?: string;
+  regional?: ClimatePercentilesScope | null;
+  by_province?: ClimatePercentilesScope[];
+}
+
+
 export interface StationReservoirLink {
   station_code: string;
   station_name?: string;
@@ -886,6 +963,7 @@ export interface IrrigationAutonomySnapshot {
   effective_precip?: EffectivePrecipSnapshot;
   siar_by_system?: SiarBySystemSnapshot;
   campaign_compare?: CampaignCompareSnapshot;
+  climate_percentiles?: ClimatePercentilesSnapshot;
   station_reservoir_links?: StationReservoirLinksSnapshot;
 }
 
