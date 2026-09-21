@@ -95,6 +95,54 @@ def gis_zones() -> JSONResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+
+@app.get("/api/gis/chg/layers")
+def gis_chg_layers() -> dict:
+    """Catálogo de capas públicas CHG (metadatos; sin martillar GeoServer)."""
+    try:
+        from app.chg_layers import build_chg_layers_snapshot
+
+        return jsonable_encoder(build_chg_layers_snapshot(include_inline_geojson=False))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/gis/chg/{layer_id}.geojson")
+def gis_chg_layer_geojson(
+    layer_id: str,
+    refresh: bool = Query(False, description="Forzar refetch (ignora caché)"),
+    max_features: int | None = Query(
+        None, ge=1, le=5000, description="Tope WFS (obligatorio para recintos_riego_pub)"
+    ),
+    bbox: str | None = Query(
+        None, description="BBOX WFS opcional: minx,miny,maxx,maxy[,CRS]"
+    ),
+    simplify_tol: float | None = Query(
+        None, ge=0.0, le=0.1, description="Tolerancia Douglas-Peucker en grados"
+    ),
+) -> JSONResponse:
+    """GeoJSON simplificado + metadatos de una capa CHG (caché disco/memoria)."""
+    try:
+        from app.chg_layers import LAYER_BY_ID, fetch_layer_geojson
+
+        if layer_id not in LAYER_BY_ID:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Capa desconocida: {layer_id}. Ver /api/gis/chg/layers",
+            )
+        payload = fetch_layer_geojson(
+            layer_id,
+            force_refresh=refresh,
+            max_features=max_features,
+            bbox=bbox,
+            simplify_tol=simplify_tol,
+        )
+        return JSONResponse(content=jsonable_encoder(payload))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 @app.get("/api/meteo/forecast")
 def get_meteo_forecast(
     province: str | None = Query(

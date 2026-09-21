@@ -1002,6 +1002,55 @@ export interface IntradayHeatSnapshot {
   by_province?: IntradayHeatScope[];
 }
 
+
+export interface ChgLayerWmsConfig {
+  url: string;
+  layers: string;
+  format?: string;
+  transparent?: boolean;
+  version?: string;
+  attribution?: string;
+  uppercase?: boolean;
+}
+
+export interface ChgLayerMeta {
+  id: string;
+  type_name?: string;
+  title_es?: string;
+  title_en?: string;
+  render?: "geojson" | "wms" | string;
+  endpoint?: string;
+  feature_count_hint?: number | null;
+  enabled_default?: boolean;
+  priority?: number;
+  note_es?: string;
+  wms?: ChgLayerWmsConfig | null;
+  datos_gob_es?: string;
+  available?: boolean;
+  fetched_at?: string | null;
+  error?: string | null;
+}
+
+export interface ChgLayersSnapshot {
+  available: boolean;
+  provider?: string;
+  attribution?: string;
+  attribution_html?: string;
+  base_wfs?: string;
+  base_wms?: string;
+  crs_request?: string;
+  crs_native_typical?: string;
+  wfs_version?: string;
+  cache_ttl_s?: number;
+  simplify_tol_deg?: number;
+  as_of?: string | null;
+  fetched_at?: string | null;
+  lazy?: boolean;
+  note_es?: string;
+  caveats_es?: string[];
+  layers?: ChgLayerMeta[];
+}
+
 export interface IrrigationAutonomySnapshot {
   thresholds?: IrrigationThresholds;
   available: boolean;
@@ -1028,6 +1077,7 @@ export interface IrrigationAutonomySnapshot {
   climate_percentiles?: ClimatePercentilesSnapshot;
   intraday_heat?: IntradayHeatSnapshot;
   station_reservoir_links?: StationReservoirLinksSnapshot;
+  chg_layers?: ChgLayersSnapshot;
 }
 
 export interface MeteoSiarSnapshot {

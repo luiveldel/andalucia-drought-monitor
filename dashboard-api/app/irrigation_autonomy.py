@@ -162,6 +162,25 @@ def _empty() -> dict[str, Any]:
                 "system_count": 0,
             },
         },
+        "chg_layers": {
+            "available": False,
+            "provider": "CHG IDE-CHG GeoServer",
+            "attribution": "",
+            "attribution_html": "",
+            "base_wfs": "https://idechg.chguadalquivir.es/geoserver/ggiscloud_root/ows",
+            "base_wms": "https://idechg.chguadalquivir.es/geoserver/ggiscloud_root/wms",
+            "crs_request": "EPSG:4326",
+            "crs_native_typical": "EPSG:25830",
+            "wfs_version": "1.1.0",
+            "cache_ttl_s": 86400,
+            "simplify_tol_deg": 0.005,
+            "as_of": None,
+            "fetched_at": None,
+            "lazy": True,
+            "note_es": "",
+            "caveats_es": [],
+            "layers": [],
+        },
         "campaign_compare": {
             "available": False,
             "campaign": {"label_es": "Campaña agrícola abr–sep", "start_month": 4, "start_day": 1, "end_month": 9, "end_day": 30},
@@ -1129,10 +1148,15 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
         from app.climate_percentiles import build_climate_percentiles
         from app.station_reservoir_links import build_station_reservoir_links
         from app.intraday_heat import build_intraday_heat
+        from app.chg_layers import build_chg_layers_snapshot
 
         campaign_compare = build_campaign_compare(conn, as_of=as_of_siar)
         climate_percentiles = build_climate_percentiles(conn, as_of=as_of_siar)
         station_reservoir_links = build_station_reservoir_links(conn)
+        try:
+            chg_layers = build_chg_layers_snapshot(include_inline_geojson=False)
+        except Exception:  # noqa: BLE001 — never break autonomy payload
+            chg_layers = empty.get("chg_layers") or {"available": False, "layers": []}
         try:
             intraday_heat = build_intraday_heat(conn, lookback_days=2)
         except Exception:  # noqa: BLE001 — never break autonomy payload
@@ -1168,7 +1192,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
                 "necesidades por cultivo ETc=Kc×ET0 (proxy vs stock/ha); "
                 "Pe vs precip bruta (PePMon SiAR / estimación USDA-SCS); "
                 "demanda SiAR por sistema de explotación (estimación por cuota de capacidad); "
-                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); olas de calor intradía (SiAR horario o proxy Open-Meteo). "
+                "comparativa interanual de campaña abr–sep (SiAR o proxy RIA); percentiles multi-año ET0/demanda (SiAR o proxy RIA); mapa estación SiAR × embalse/sistema (estimación vecino más cercano); capas abiertas CHG (sistemas explotación / recintos riego WMS); olas de calor intradía (SiAR horario o proxy Open-Meteo). "
                 "El resto de embalses sigue siendo multipropósito."
             ),
             "regional": regional,
@@ -1188,6 +1212,7 @@ def load_irrigation_autonomy(conn: Connection) -> dict[str, Any]:
             "climate_percentiles": climate_percentiles,
             "station_reservoir_links": station_reservoir_links,
             "intraday_heat": intraday_heat,
+            "chg_layers": chg_layers,
         }
     except Exception as exc:  # noqa: BLE001
         empty["note"] = f"Error calculando autonomía de riego: {exc}"

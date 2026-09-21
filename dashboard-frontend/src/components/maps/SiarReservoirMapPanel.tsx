@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
+  ChgLayersSnapshot,
   IrrigationAutonomySnapshot,
   StationReservoirLink,
   StationReservoirLinksSnapshot,
@@ -12,20 +13,45 @@ import type {
 import { useT } from "@/i18n/useT";
 import { useLocaleStore } from "@/store/locale.store";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CircleMarker,
+  GeoJSON,
   MapContainer,
   Popup,
   TileLayer,
   Tooltip,
+  WMSTileLayer,
 } from "react-leaflet";
+import type { FeatureCollection } from "geojson";
 
 const CARTO_KEY = (import.meta.env.VITE_CARTO_API_KEY as string | undefined)?.trim() || "";
 const TILE_BASE = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const TILE = CARTO_KEY ? `${TILE_BASE}?key=${encodeURIComponent(CARTO_KEY)}` : TILE_BASE;
 const ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO';
+const CHG_ATTR =
+  '&copy; <a href="https://www.chguadalquivir.es/" target="_blank" rel="noopener">CHG</a> IDE-CHG';
+
+type ChgGeoPayload = {
+  available?: boolean;
+  feature_collection?: FeatureCollection;
+  error?: string | null;
+  attribution?: string;
+  fetched_at?: string | null;
+  feature_count?: number;
+  note_es?: string;
+};
+
+async function fetchChgGeojson(layerId: string): Promise<ChgGeoPayload | null> {
+  try {
+    const res = await fetch(`/api/gis/chg/${layerId}.geojson`);
+    if (!res.ok) return null;
+    return (await res.json()) as ChgGeoPayload;
+  } catch {
+    return null;
+  }
+}
 
 /** Stable pastel palette keyed by exploitation system name. */
 const SYSTEM_PALETTE = [
@@ -67,9 +93,71 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
   const es = locale !== "en";
   const t = useT();
   const snap: StationReservoirLinksSnapshot | undefined = props.autonomy.station_reservoir_links;
+  const chg: ChgLayersSnapshot | undefined = props.autonomy.chg_layers;
   const [filterSystem, setFilterSystem] = useState<string>("");
   const [showCaveats, setShowCaveats] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [showSistemas, setShowSistemas] = useState(true);
+  const [showRecintos, setShowRecintos] = useState(false);
+  const [showBalsas, setShowBalsas] = useState(false);
+  const [sistemasFc, setSistemasFc] = useState<FeatureCollection | null>(null);
+  const [balsasFc, setBalsasFc] = useState<FeatureCollection | null>(null);
+  const [chgStatus, setChgStatus] = useState<string>("");
+  const [chgFetchedAt, setChgFetchedAt] = useState<string | null>(null);
+
+  const chgWms = useMemo(() => {
+    const rec = (chg?.layers ?? []).find((l) => l.id === "recintos_riego_pub");
+    return rec?.wms ?? {
+      url: chg?.base_wms || "https://idechg.chguadalquivir.es/geoserver/ggiscloud_root/wms",
+      layers: "ggiscloud_root:recintos_riego_pub",
+      format: "image/png",
+      transparent: true,
+      version: "1.1.1",
+      attribution: CHG_ATTR,
+    };
+  }, [chg]);
+
+  useEffect(() => {
+    if (!showSistemas) return;
+    let alive = true;
+    setChgStatus(es ? "Cargando sistemas CHG…" : "Loading CHG systems…");
+    void (async () => {
+      const payload = await fetchChgGeojson("sistemas_explotacion");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setSistemasFc(payload.feature_collection);
+        setChgFetchedAt(payload.fetched_at ?? null);
+        setChgStatus(
+          es
+            ? `Sistemas CHG: ${payload.feature_count ?? payload.feature_collection.features?.length ?? 0} (simplificados)`
+            : `CHG systems: ${payload.feature_count ?? payload.feature_collection.features?.length ?? 0} (simplified)`,
+        );
+      } else {
+        setChgStatus(
+          payload?.error ||
+            (es ? "No se pudieron cargar los sistemas CHG." : "Could not load CHG systems."),
+        );
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showSistemas, es]);
+
+  useEffect(() => {
+    if (!showBalsas) return;
+    let alive = true;
+    void (async () => {
+      const payload = await fetchChgGeojson("balsas");
+      if (!alive) return;
+      if (payload?.available && payload.feature_collection) {
+        setBalsasFc(payload.feature_collection);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showBalsas]);
 
   const systems = useMemo(() => {
     const names = new Set<string>();
@@ -194,13 +282,124 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
             </span>
           </div>
 
+          {chg?.available !== false ? (
+            <div className="space-y-2 rounded-md border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-xs font-medium text-ink dark:text-ink-dark">
+                {es ? "Capas CHG (abiertas)" : "CHG open layers"}
+              </p>
+              <div className="flex flex-wrap gap-4 text-xs text-muted dark:text-muted-dark">
+                <label className="inline-flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={showSistemas}
+                    onChange={(e) => setShowSistemas(e.target.checked)}
+                  />
+                  {es ? "Sistemas de explotación" : "Exploitation systems"}
+                </label>
+                <label className="inline-flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={showRecintos}
+                    onChange={(e) => setShowRecintos(e.target.checked)}
+                  />
+                  {es ? "Recintos de riego (WMS)" : "Irrigation parcels (WMS)"}
+                </label>
+                <label className="inline-flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={showBalsas}
+                    onChange={(e) => setShowBalsas(e.target.checked)}
+                  />
+                  {es ? "Balsas" : "Ponds"}
+                </label>
+              </div>
+              <p className="text-[11px] leading-snug text-muted dark:text-muted-dark">
+                {chg?.note_es ||
+                  (es
+                    ? "Fuente: IDE-CHG / datos.gob.es. Geometrías simplificadas (~500 m). Los recintos (~349 mil) se pintan por WMS para no saturar el navegador."
+                    : "Source: IDE-CHG / datos.gob.es. Simplified geometries (~500 m). Parcels (~349k) are drawn via WMS to avoid browser overload.")}
+                {chgFetchedAt ? (
+                  <span className="ml-1 opacity-80">
+                    · {es ? "caché" : "cache"} {chgFetchedAt}
+                  </span>
+                ) : null}
+              </p>
+              {chgStatus ? (
+                <p className="text-[11px] text-muted dark:text-muted-dark">{chgStatus}</p>
+              ) : null}
+            </div>
+          ) : null}
+
           <MapContainer
             center={[37.25, -4.6]}
             zoom={7}
             className="z-0 h-[28rem] w-full overflow-hidden rounded-lg"
             scrollWheelZoom={false}
           >
-            <TileLayer attribution={ATTR} url={TILE} subdomains="abcd" />
+            <TileLayer
+              attribution={showRecintos || showSistemas || showBalsas ? `${ATTR} | ${CHG_ATTR}` : ATTR}
+              url={TILE}
+              subdomains="abcd"
+            />
+            {showRecintos ? (
+              <WMSTileLayer
+                url={chgWms.url}
+                params={{
+                  layers: chgWms.layers,
+                  format: chgWms.format || "image/png",
+                  transparent: chgWms.transparent !== false,
+                  version: chgWms.version || "1.1.1",
+                }}
+                opacity={0.55}
+                attribution={CHG_ATTR}
+              />
+            ) : null}
+            {showSistemas && sistemasFc ? (
+              <GeoJSON
+                key={`sistemas-${sistemasFc.features?.length ?? 0}`}
+                data={sistemasFc}
+                style={(feat) => {
+                  const name =
+                    (feat?.properties as { nom_sisexp?: string } | null)?.nom_sisexp || "";
+                  return {
+                    color: systemColor(name),
+                    weight: 1.5,
+                    fillColor: systemColor(name),
+                    fillOpacity: 0.18,
+                  };
+                }}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as {
+                    nom_sisexp?: string;
+                    cod_sisexp?: string;
+                    area_sisex?: number;
+                  };
+                  const ha =
+                    p.area_sisex != null && Number.isFinite(Number(p.area_sisex))
+                      ? ` · ${(Number(p.area_sisex) / 1e4).toFixed(0)} ha`
+                      : "";
+                  layer.bindTooltip(
+                    `${p.nom_sisexp || "Sistema"}${p.cod_sisexp ? ` (${p.cod_sisexp})` : ""}${ha}`,
+                  );
+                }}
+              />
+            ) : null}
+            {showBalsas && balsasFc ? (
+              <GeoJSON
+                key={`balsas-${balsasFc.features?.length ?? 0}`}
+                data={balsasFc}
+                style={() => ({
+                  color: "#0369a1",
+                  weight: 1,
+                  fillColor: "#38bdf8",
+                  fillOpacity: 0.45,
+                })}
+                onEachFeature={(feat, layer) => {
+                  const p = (feat.properties || {}) as { nom_balsa?: string; cod_balsa?: string };
+                  layer.bindTooltip(p.nom_balsa || p.cod_balsa || "Balsa");
+                }}
+              />
+            ) : null}
             {reservoirPts.map((r) => (
               <CircleMarker
                 key={`r-${r.reservoir_code}`}
@@ -309,6 +508,9 @@ export function SiarReservoirMapPanel(props: { autonomy: IrrigationAutonomySnaps
             <ul className="list-disc space-y-1 pl-5 text-xs text-muted dark:text-muted-dark">
               {(snap.caveats_es ?? []).map((c) => (
                 <li key={c}>{c}</li>
+              ))}
+              {(chg?.caveats_es ?? []).map((c) => (
+                <li key={`chg-${c}`}>{c}</li>
               ))}
             </ul>
           ) : null}
