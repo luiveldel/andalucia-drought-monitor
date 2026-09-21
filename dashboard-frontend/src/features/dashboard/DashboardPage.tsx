@@ -1,12 +1,29 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ReservoirEvolutionChart } from "@/components/charts/ReservoirEvolutionChart";
 import { ClimateIndicatorsRow } from "@/components/climate/ClimateIndicatorsRow";
 import { ExploitationSystemsPanel } from "@/components/climate/ExploitationSystemsPanel";
 import { HeatStressPanel } from "@/components/climate/HeatStressPanel";
+import { ClimateProvinceSelect } from "@/components/climate/ClimateProvinceSelect";
 import { ClimateSubNav, type ClimateSubTab } from "@/components/climate/ClimateSubNav";
+import { CLIMATE_REGIONAL, type ClimateProvince } from "@/constants/provinces";
+import { buildClimateIndicators } from "@/services/dashboard/dashboard.service";
 import { ForecastPanel } from "@/components/climate/ForecastPanel";
-import { MonthlyAnomalyPanel } from "@/components/climate/MonthlyAnomalyPanel";
 import { ObservedMeteoPanel } from "@/components/climate/ObservedMeteoPanel";
+import { SiarObservedPanel } from "@/components/climate/SiarObservedPanel";
+import { IrrigationAutonomyPanel } from "@/components/climate/IrrigationAutonomyPanel";
+import { IrrigationAlertsPanel } from "@/components/climate/IrrigationAlertsPanel";
+import { IrrigationProjectionPanel } from "@/components/climate/IrrigationProjectionPanel";
+import { RiaSiarComparePanel } from "@/components/climate/RiaSiarComparePanel";
+import { SiarWaterBalancePanel } from "@/components/climate/SiarWaterBalancePanel";
+import { HeatDemandCrossPanel } from "@/components/climate/HeatDemandCrossPanel";
+import { CutRiskPanel } from "@/components/climate/CutRiskPanel";
+import { IrrigationScenariosPanel } from "@/components/climate/IrrigationScenariosPanel";
+import { CropEtcPanel } from "@/components/climate/CropEtcPanel";
+import { EffectivePrecipPanel } from "@/components/climate/EffectivePrecipPanel";
+import { SiarBySystemPanel } from "@/components/climate/SiarBySystemPanel";
+import { CampaignComparePanel } from "@/components/climate/CampaignComparePanel";
+import { ClimatePercentilesPanel } from "@/components/climate/ClimatePercentilesPanel";
+import { IntradayHeatPanel } from "@/components/climate/IntradayHeatPanel";
 import { SpiPanel } from "@/components/climate/SpiPanel";
 import { ProvinceCompare } from "@/components/compare/ProvinceCompare";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -19,6 +36,7 @@ import { DecisionCenter } from "@/components/decision/DecisionCenter";
 import { InsightsPanel } from "@/components/insights/InsightsPanel";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { ProvinceStatusMap } from "@/components/maps/ProvinceStatusMap";
+import { SiarReservoirMapPanel } from "@/components/maps/SiarReservoirMapPanel";
 import { ProvinceStatusGrid } from "@/components/provinces/ProvinceStatusGrid";
 import { SeverityDistributionCard } from "@/components/severity/SeverityDistributionCard";
 import { ReservoirTable } from "@/components/table/ReservoirTable";
@@ -32,6 +50,14 @@ export function DashboardPage() {
   const tab = useTabsStore((s) => s.tab);
   const t = useT();
   const [climateSub, setClimateSub] = useState<ClimateSubTab>("observed");
+  const [climateProvince, setClimateProvince] = useState<ClimateProvince>(CLIMATE_REGIONAL);
+
+  const climateIndicators = useMemo(() => {
+    if (!data) return [];
+    if (climateProvince === CLIMATE_REGIONAL) return data.climate;
+    const bundle = data.climateByProvince?.[climateProvince];
+    return bundle ? buildClimateIndicators(bundle) : data.climate;
+  }, [climateProvince, data]);
 
   if (isLoading) {
     return (
@@ -71,6 +97,7 @@ export function DashboardPage() {
             alerts={data.alerts}
             recommendations={data.recommendations}
             riskBoard={data.riskBoard}
+            irrigationAutonomy={data.irrigationAutonomy}
           />
         ) : null}
 
@@ -80,6 +107,15 @@ export function DashboardPage() {
               <SectionHeader title={t("section.kpis")} description={t("section.kpis.desc")} />
               <div className="mt-3">
                 <KpiGrid kpis={data.kpis} />
+              </div>
+            </section>
+            <section>
+              <SectionHeader
+                title="Semáforo provincial de riego"
+                description="Autonomía usable (SiAR×Kc) por provincia. Cambia a llenado si quieres ver embalses."
+              />
+              <div className="mt-3">
+                <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
               </div>
             </section>
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -92,7 +128,11 @@ export function DashboardPage() {
               </div>
             </div>
             {data.dataNotes.length > 0 ? (
-              <p className="text-xs text-muted dark:text-muted-dark">{data.dataNotes.join(" · ")}</p>
+              <ul className="list-disc space-y-1 pl-4 text-xs text-muted dark:text-muted-dark">
+                {data.dataNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
             ) : null}
           </>
         ) : null}
@@ -102,34 +142,86 @@ export function DashboardPage() {
             <SectionHeader title={t("section.provinces")} description={t("section.provinces.desc")} />
             <div className="mt-3 space-y-4">
               <ProvinceStatusGrid provinces={data.provinces} />
-              <ProvinceStatusMap provinces={data.provinces} />
+              <ProvinceStatusMap provinces={data.provinces} defaultMode="irrigation" />
+              <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
             </div>
           </section>
         ) : null}
 
         {tab === "climate" ? (
           <div className="space-y-6">
-            <ClimateSubNav value={climateSub} onChange={setClimateSub} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <ClimateSubNav value={climateSub} onChange={setClimateSub} />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
             {climateSub === "forecast" ? (
-              <ForecastPanel forecast={data.meteoForecast} />
+              <ForecastPanel forecast={data.meteoForecast} province={climateProvince} />
             ) : (
               <>
-                <ObservedMeteoPanel meteo={data.meteoObserved} />
-                <ClimateIndicatorsRow indicators={data.climate} />
-                <MonthlyAnomalyPanel
-                  monthlyPrecip={data.monthlyPrecip}
-                  tempAnomaly={data.tempAnomaly}
+                <ObservedMeteoPanel meteo={data.meteoObserved} province={climateProvince} />
+                <ClimateIndicatorsRow
+                  indicators={climateIndicators}
+                  scopeLabel={climateProvince}
                 />
                 <HeatStressPanel heatStress={data.heatStress} />
+                <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
                 <ExploitationSystemsPanel systems={data.exploitationSystems} />
+                <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
                 <SpiPanel spi={data.spi} />
               </>
             )}
           </div>
         ) : null}
 
+        {tab === "irrigation" ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader
+                title={t("section.irrigation")}
+                description={t("section.irrigation.desc")}
+              />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <IrrigationAlertsPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IrrigationProjectionPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <SiarObservedPanel meteo={data.meteoSiar} province={climateProvince} />
+            <SiarWaterBalancePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <EffectivePrecipPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <HeatDemandCrossPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IntradayHeatPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <CropEtcPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <SiarBySystemPanel autonomy={data.irrigationAutonomy} />
+            <SiarReservoirMapPanel autonomy={data.irrigationAutonomy} />
+            <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <ClimatePercentilesPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IrrigationAutonomyPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+          </div>
+        ) : null}
+
+        {tab === "risk" ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader
+                title={t("section.risk")}
+                description={t("section.risk.desc")}
+              />
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <CutRiskPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <IrrigationScenariosPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+          </div>
+        ) : null}
+
         {tab === "compare" ? (
-          <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
+          <div className="space-y-6">
+            <ProvinceCompare provinceNames={data.provinces.map((p) => p.province)} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+              <ClimateProvinceSelect value={climateProvince} onChange={setClimateProvince} />
+            </div>
+            <RiaSiarComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <CampaignComparePanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+            <ClimatePercentilesPanel autonomy={data.irrigationAutonomy} province={climateProvince} />
+          </div>
         ) : null}
 
         {tab === "reservoirs" ? <ReservoirTable rows={data.reservoirs} /> : null}

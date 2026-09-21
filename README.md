@@ -2,7 +2,7 @@
 
 Plataforma local de ingeniería de datos para monitorizar sequía y resiliencia agrícola en Andalucía.
 
-Ingesta diaria de embalses (REDIAM) y climatología (RIA/IFAPA), transformación con **dbt** sobre **PostgreSQL/PostGIS**, orquestación con **Airflow**, y un panel de decisión **React + FastAPI**.
+Ingesta diaria de embalses (REDIAM) y climatología (RIA/IFAPA + SiAR/MAPA), transformación con **dbt** sobre **PostgreSQL/PostGIS**, orquestación con **Airflow**, y un panel de decisión **React + FastAPI**.
 
 ## Stack
 

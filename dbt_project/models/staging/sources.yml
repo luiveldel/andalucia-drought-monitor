@@ -8,3 +8,4 @@ sources:
       - name: raw_embalses_catalog
       - name: raw_embalses_diarios
       - name: raw_ria_clima_diario
+      - name: raw_siar_clima_diario

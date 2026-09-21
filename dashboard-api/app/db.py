@@ -61,9 +61,12 @@ def _empty_payload() -> dict[str, Any]:
         "temp_anomaly": [],
         "heat_stress": {"available": False, "as_of": None, "latest": [], "recent_days": []},
         "exploitation_systems": {"available": False, "as_of": None, "systems": []},
-        "meteo_observed": {"available": False, "as_of": None, "grain": "daily", "note": "", "regional": None, "by_province": [], "trend_days": [], "alerts": []},
+        "meteo_observed": {"available": False, "as_of": None, "grain": "daily", "note": "", "regional": None, "by_province": [], "trend_days": [], "trend_by_province": {}, "alerts": []},
+        "meteo_siar": {"available": False, "as_of": None, "grain": "daily", "source": "SiAR", "attribution": "https://servicio.mapa.gob.es/siarweb/", "note": "", "station_count": 0, "regional": None, "by_province": [], "trend_days": []},
+        "irrigation_autonomy": {"available": False, "as_of_reservoir": None, "as_of_siar": None, "kc": None, "irrigated_ha_source": "", "storage_scope": "", "note": "", "method_es": "", "regional": None, "by_province": [], "alerts": [], "projection": {"available": False}, "ria_siar_compare": {"available": False}, "cut_risk": {"available": False}, "scenarios": {"available": False}, "crop_etc": {"available": False}},
         "meteo_forecast": {"available": False, "source": "Open-Meteo", "attribution": "https://open-meteo.com", "location_label": "Andalucía (centroide)", "latitude": 37.39, "longitude": -5.99, "generated_at": None, "error": None, "current": None, "hourly_today": [], "daily": [], "alerts": []},
         "stress_evolution": [],
+        "climate_by_province": {},
         "reservoir_rows": [],
         "province_map_kpis": [],
         "weekly_deltas": {
@@ -72,20 +75,20 @@ def _empty_payload() -> dict[str, Any]:
             "precip_mm": 0.0,
             "deficit_mm": 0.0,
         },
-        "weekly_narrative": "Sin datos en marts. Ejecuta los DAGs de Airflow y dbt run.",
+        "weekly_narrative": "Aún no hay datos listos para el panel. Vuelve cuando la carga diaria haya terminado.",
         "alerts": [],
         "recommendations": [
             {
                 "priority": "info",
-                "title": "Poblar el almacén",
-                "detail": "Lanza elt_daily_pipeline y elt_monthly_pipeline, luego dbt run.",
+                "title": "Esperando datos",
+                "detail": "Cuando termine la carga diaria aparecerán alertas y recomendaciones.",
             }
         ],
         "risk_board": [],
         "data_notes": [
-            "Precipitación = avg_precipitation_mm (mm).",
-            "Déficit hídrico = daily_water_deficit_mm (ET0 − precip), no SPI-12.",
-            "SPI-12 pendiente de climatología histórica en marts.",
+            "La precipitación mostrada es la media diaria en mm.",
+            "El déficit hídrico es ET0 menos lluvia del día; no es el índice SPI.",
+            "El SPI aún necesita más historial de lluvia para ser fiable.",
         ],
     }
 
@@ -150,7 +153,11 @@ def _build_alerts(province_rows: list[dict[str, Any]], avg_fill: float, precip_3
     return alerts[:12]
 
 
-def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _build_recommendations(
+    alerts: list[dict[str, Any]],
+    risk_board: list[dict[str, Any]],
+    irrigation_autonomy: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     recs: list[dict[str, Any]] = []
     critical = [a for a in alerts if a["severity"] == "critical"]
     if critical:
@@ -172,6 +179,50 @@ def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[s
                 "detail": f"{names}: analizar extracciones y pérdidas; contrastar con aportaciones.",
             }
         )
+    # Irrigation cut-risk from autonomy projection (shared THRESHOLDS)
+    try:
+        from app.irrigation_autonomy import THRESHOLDS as _IR_TH
+    except Exception:  # noqa: BLE001
+        _IR_TH = {
+            "until_critical_high": 7,
+            "until_critical_medium": 21,
+            "autonomy_critical": 21.0,
+        }
+    until_high = int(_IR_TH.get("until_critical_high", 7))
+    until_med = int(_IR_TH.get("until_critical_medium", 21))
+    crit_band = float(_IR_TH.get("autonomy_critical", 21))
+    ia = irrigation_autonomy or {}
+    proj = ia.get("projection") or {}
+    cut_near: list[tuple[str, int]] = []
+    for row in proj.get("by_province") or []:
+        if not row.get("available"):
+            continue
+        until = row.get("days_until_critical")
+        if until is None:
+            continue
+        try:
+            until_i = int(until)
+        except (TypeError, ValueError):
+            continue
+        if until_i <= until_med:
+            cut_near.append((str(row.get("province_name") or "?"), until_i))
+    if cut_near:
+        cut_near.sort(key=lambda x: x[1])
+        bits = ", ".join(
+            f"{n} ({d}d)" if d > 0 else f"{n} (ya crítico)" for n, d in cut_near[:4]
+        )
+        worst = cut_near[0][1]
+        recs.insert(
+            0,
+            {
+                "priority": "high" if worst <= until_high else "medium",
+                "title": "Riesgo de corte de riego (autonomía)",
+                "detail": (
+                    f"Provincias con ≤{until_med} d hasta autonomía <{crit_band:.0f} d: {bits}. "
+                    "Revisar turnos, prioridad de cultivos y embalses de riego."
+                ),
+            },
+        )
     if not recs:
         recs.append(
             {
@@ -180,7 +231,7 @@ def _build_recommendations(alerts: list[dict[str, Any]], risk_board: list[dict[s
                 "detail": "Sin alertas críticas; revisar ranking provincial y lluvia acumulada cada lunes.",
             }
         )
-    return recs
+    return recs[:5]
 
 
 def _weekly_narrative(deltas: dict[str, float], avg_fill: float, alert_n: int) -> str:
@@ -580,11 +631,17 @@ def load_dashboard_data() -> dict[str, Any]:
 
         from app.climate_extras import load_exploitation_systems, load_heat_stress
         from app.meteo_observed import load_meteo_observed
+        from app.meteo_siar import load_meteo_siar
+        from app.irrigation_autonomy import load_irrigation_autonomy
         from app.meteo_forecast import load_meteo_forecast
 
         heat_stress = load_heat_stress(conn)
         exploitation_systems = load_exploitation_systems(conn)
         meteo_observed = load_meteo_observed(conn)
+        meteo_siar = load_meteo_siar(conn)
+        irrigation_autonomy = load_irrigation_autonomy(conn)
+        from app.climate_by_province import load_climate_by_province
+        climate_by_province = load_climate_by_province(conn)
         meteo_forecast = load_meteo_forecast()
 
         stress_evolution = _rows(
@@ -749,7 +806,32 @@ def load_dashboard_data() -> dict[str, Any]:
             1 for p in province_rows if _severity_from_fill(float(p.get("avg_fill_pct") or 0)) in ("emergency", "critical")
         )
         effective_alerts = max(int(alert_count), prov_alert_n)
-        recommendations = _build_recommendations(alerts, risk_board)
+        
+        # Attach irrigation autonomy traffic-light to risk board rows
+        _irr_by = {
+            str(r.get("province_name") or ""): r
+            for r in (irrigation_autonomy or {}).get("by_province") or []
+        }
+        _proj_by = {
+            str(r.get("province_name") or ""): r
+            for r in ((irrigation_autonomy or {}).get("projection") or {}).get("by_province") or []
+        }
+        def _norm_p(s: str) -> str:
+            import unicodedata
+            s = unicodedata.normalize("NFD", s)
+            s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+            return s.lower().strip()
+        _irr_norm = {_norm_p(k): v for k, v in _irr_by.items()}
+        _proj_norm = {_norm_p(k): v for k, v in _proj_by.items()}
+        for r in risk_board:
+            key = _norm_p(str(r.get("province") or ""))
+            ir = _irr_norm.get(key) or {}
+            pr = _proj_norm.get(key) or {}
+            r["irrigation_days_autonomy"] = ir.get("days_autonomy")
+            r["irrigation_risk_level"] = ir.get("risk_level") or "unknown"
+            r["days_until_critical"] = pr.get("days_until_critical")
+
+        recommendations = _build_recommendations(alerts, risk_board, irrigation_autonomy)
         narrative = _weekly_narrative(weekly_deltas, avg_fill, effective_alerts)
 
         return {
@@ -773,6 +855,9 @@ def load_dashboard_data() -> dict[str, Any]:
             "heat_stress": heat_stress,
             "exploitation_systems": exploitation_systems,
             "meteo_observed": meteo_observed,
+            "meteo_siar": meteo_siar,
+            "irrigation_autonomy": irrigation_autonomy,
+            "climate_by_province": climate_by_province,
             "meteo_forecast": meteo_forecast,
             "stress_evolution": stress_evolution,
             "reservoir_rows": reservoir_rows,
@@ -783,9 +868,10 @@ def load_dashboard_data() -> dict[str, Any]:
             "recommendations": recommendations,
             "risk_board": risk_board,
             "data_notes": [
-                "Precipitación = avg_precipitation_mm (mm), no volumen de embalse.",
-                "Déficit hídrico diario = ET0 − precip (mm); no es SPI-12.",
-                "SPI-12 pendiente de serie climática de referencia en marts.",
-                "Meteo observado = RIA diario; pronóstico = AEMET (municipio) con fallback Open-Meteo.",
+                "La precipitación es lluvia media del día (mm), no el volumen del embalse.",
+                "El déficit hídrico diario es ET0 menos lluvia; no es el índice SPI.",
+                "El SPI aún necesita más historial de lluvia para ser fiable.",
+                "El clima observado combina RIA (Andalucía) y SiAR (MAPA riego); el pronóstico usa AEMET y, si falta, Open-Meteo.",
+                "La autonomía de riego es un piloto orientativo (embalse ÷ demanda SiAR); no decide derechos de agua.",
             ],
         }

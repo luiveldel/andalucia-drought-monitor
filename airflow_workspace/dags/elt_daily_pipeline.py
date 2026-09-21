@@ -94,3 +94,21 @@ def dag_() -> None:
     start >> [embalses, ria] >> dbt_transform >> end
 
 dag_()
+
+
+# SiAR hourly ingest: ENABLED in lavd-airflow-dags (task ingest_siar_clima_hourly). Local stub kept for reference.
+# Optional SiAR hourly ingest (olas de calor intradía):
+# Enable when SIAR_API_KEY is present and quota allows.
+#
+# def ingest_siar_hourly(partition_date: str, **kwargs) -> int:
+#     from extract_siar_hourly import run
+#     return run(partition_date, fecha_final=partition_date)
+#
+# siar_hourly = PythonOperator(
+#     task_id="ingest_siar_hourly",
+#     python_callable=ingest_siar_hourly,
+#     op_kwargs={"partition_date": EXECUTION_DATE},
+#     execution_timeout=timedelta(minutes=30),
+# )
+# Wire after daily SiAR (or parallel with care for API quota):
+#   siar_daily >> siar_hourly >> dbt_run

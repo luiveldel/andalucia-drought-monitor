@@ -118,3 +118,21 @@ models:
         description: UTC timestamp when the row was loaded to raw.
         tests:
           - not_null
+
+  - name: stg_siar_clima
+    description: >
+      Daily agroclimatic readings from MAPA SiAR (irrigation station network).
+      Complements RIA; ET0 is Penman-Monteith (EtPMon) when DatosCalculados=true.
+    columns:
+      - name: observation_date
+        tests: [not_null]
+      - name: ccaa_code
+        tests: [not_null]
+      - name: station_code
+        tests: [not_null]
+      - name: province_name
+      - name: mean_temperature_c
+      - name: precipitation_mm
+      - name: reference_evapotranspiration_mm
+      - name: loaded_at
+        tests: [not_null]

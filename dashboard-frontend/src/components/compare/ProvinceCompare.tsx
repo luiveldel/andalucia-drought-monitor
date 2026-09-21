@@ -193,7 +193,7 @@ export function ProvinceCompare(props: { provinceNames?: string[] }) {
               ))}
               {(!data.a.found || !data.b.found) && (
                 <p className="mt-2 text-xs text-muted dark:text-muted-dark">
-                  Alguna provincia no tiene fila en marts para la fecha más reciente.
+                  Alguna provincia aún no tiene datos para la fecha más reciente.
                 </p>
               )}
             </div>

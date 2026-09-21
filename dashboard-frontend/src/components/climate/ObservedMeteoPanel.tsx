@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { weatherEmoji } from "@/components/climate/weatherIcons";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Card, CardContent } from "@/components/ui/card";
+import { CLIMATE_REGIONAL, type ClimateProvince } from "@/constants/provinces";
 import { cn } from "@/lib/utils";
 import { chartToneForId } from "@/lib/water-chart";
-import type { MeteoObservedSnapshot } from "@/types/dashboard-model";
+import type { MeteoObservedMetrics, MeteoObservedSnapshot } from "@/types/dashboard-model";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 function Kpi(props: { label: string; value: string; hint?: string }) {
@@ -23,17 +25,34 @@ function fmt(n: number | null | undefined, unit = "", digits = 1): string {
   return `${Number(n).toFixed(digits)}${unit}`;
 }
 
-export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
+export function ObservedMeteoPanel(props: {
+  meteo: MeteoObservedSnapshot;
+  province: ClimateProvince;
+}) {
   const m = props.meteo;
-  const r = m.regional;
+  const isRegional = props.province === CLIMATE_REGIONAL;
+
+  const r: MeteoObservedMetrics | null | undefined = useMemo(() => {
+    if (isRegional) return m.regional;
+    return (m.by_province ?? []).find((p) => p.province_name === props.province) ?? null;
+  }, [isRegional, m.by_province, m.regional, props.province]);
+
   const tempTone = chartToneForId("temp_anomaly");
   const humidTone = chartToneForId("fill");
-  const series = (m.trend_days ?? []).map((d) => ({
+
+  const trendSource = useMemo(() => {
+    if (isRegional) return m.trend_days ?? [];
+    return m.trend_by_province?.[props.province] ?? [];
+  }, [isRegional, m.trend_by_province, m.trend_days, props.province]);
+
+  const series = trendSource.map((d) => ({
     date: d.date.slice(5),
     temp: d.mean_temp_c,
     humidity: d.mean_humidity_pct,
     precip: d.precip_mm,
   }));
+
+  const scopeHint = isRegional ? "Media regional del día" : `Media provincial · ${props.province}`;
 
   return (
     <section className="space-y-3">
@@ -52,7 +71,8 @@ export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
                 {r?.condition_label_es ?? "Sin condición"}
               </p>
               <p className="text-sm text-muted dark:text-muted-dark">
-                Último día: <span className="tabular-nums">{m.as_of ?? "—"}</span>
+                {props.province} · Último día:{" "}
+                <span className="tabular-nums">{m.as_of ?? "—"}</span>
                 {m.grain ? ` · ${m.grain}` : null}
               </p>
             </div>
@@ -60,11 +80,15 @@ export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
 
           {!m.available || !r ? (
             <p className="text-sm text-muted dark:text-muted-dark">
-              Sin observaciones RIA recientes en marts.
+              Sin observaciones RIA recientes{isRegional ? "" : ` para ${props.province}`}.
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <Kpi label="Temperatura" value={fmt(r.mean_temp_c, " °C")} hint={`Máx ${fmt(r.max_temp_c)} / Mín ${fmt(r.min_temp_c)}`} />
+              <Kpi
+                label="Temperatura"
+                value={fmt(r.mean_temp_c, " °C")}
+                hint={`Máx ${fmt(r.max_temp_c)} / Mín ${fmt(r.min_temp_c)}`}
+              />
               <Kpi label="Sensación (est.)" value={fmt(r.feels_like_c, " °C")} hint="Heat index aprox." />
               <Kpi label="Humedad" value={fmt(r.mean_humidity_pct, " %", 0)} />
               <Kpi
@@ -72,14 +96,14 @@ export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
                 value={fmt(r.mean_wind_speed, " m/s", 2)}
                 hint={r.wind_dir_label ? `Dir. ${r.wind_dir_label}` : undefined}
               />
-              <Kpi label="Precipitación" value={fmt(r.precip_mm, " mm", 2)} hint="Media regional del día" />
+              <Kpi label="Precipitación" value={fmt(r.precip_mm, " mm", 2)} hint={scopeHint} />
               <Kpi label="ET0" value={fmt(r.et0_mm, " mm", 2)} hint="Evapotranspiración ref." />
             </div>
           )}
 
-          {(m.alerts ?? []).length > 0 ? (
+          {(m.alerts ?? []).length > 0 && isRegional ? (
             <ul className="flex flex-wrap gap-2">
-              {m.alerts.map((a) => (
+              {(m.alerts ?? []).map((a) => (
                 <li
                   key={`${a.code}-${a.title_es}`}
                   className={cn(
@@ -114,8 +138,15 @@ export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
                       <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                       <YAxis tick={{ fontSize: 10 }} width={32} domain={["auto", "auto"]} />
-                      <Tooltip formatter={(v: number) => [`${Number(v).toFixed(1)} °C`, "Temp"]} />
-                      <Area type="monotone" dataKey="temp" stroke={tempTone.stroke} fill="url(#obs-temp-fill)" strokeWidth={1.5} isAnimationActive={false} />
+                      <Tooltip formatter={(v) => [`${Number(v).toFixed(1)} °C`, "Temp"]} />
+                      <Area
+                        type="monotone"
+                        dataKey="temp"
+                        stroke={tempTone.stroke}
+                        fill="url(#obs-temp-fill)"
+                        strokeWidth={1.5}
+                        isAnimationActive={false}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -136,8 +167,15 @@ export function ObservedMeteoPanel(props: { meteo: MeteoObservedSnapshot }) {
                       <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                       <YAxis tick={{ fontSize: 10 }} width={32} domain={[0, 100]} />
-                      <Tooltip formatter={(v: number) => [`${Number(v).toFixed(0)} %`, "Humedad"]} />
-                      <Area type="monotone" dataKey="humidity" stroke={humidTone.stroke} fill="url(#obs-hum-fill)" strokeWidth={1.5} isAnimationActive={false} />
+                      <Tooltip formatter={(v) => [`${Number(v).toFixed(0)} %`, "Humedad"]} />
+                      <Area
+                        type="monotone"
+                        dataKey="humidity"
+                        stroke={humidTone.stroke}
+                        fill="url(#obs-hum-fill)"
+                        strokeWidth={1.5}
+                        isAnimationActive={false}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

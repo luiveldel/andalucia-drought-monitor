@@ -44,8 +44,7 @@ export function HeatStressPanel(props: { heatStress: HeatStressSnapshot }) {
 
           {!hs.available ? (
             <p className="text-sm text-muted dark:text-muted-dark">
-              Sin datos de estrés térmico. Ejecuta{" "}
-              <code className="text-xs">dbt run --select fact_heat_stress_days</code>.
+              Todavía no hay datos de estrés térmico para mostrar.
             </p>
           ) : null}
 
@@ -63,9 +62,9 @@ export function HeatStressPanel(props: { heatStress: HeatStressSnapshot }) {
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} width={36} />
                   <Tooltip
-                    formatter={(v: number, name: string) => {
+                    formatter={(v, name) => {
                       if (name === "risk") return [Number(v).toFixed(2), "Índice riesgo"];
-                      return [v, name];
+                      return [v as number | string, String(name)];
                     }}
                   />
                   <Area

@@ -80,8 +80,7 @@ export function SpiPanel(props: { spi?: SpiSnapshot }) {
             </div>
           ) : (
             <p className="text-sm text-muted dark:text-muted-dark">
-              SPI aún no materializado. Ejecuta{" "}
-              <code className="text-xs">dbt run --select fact_spi_provisional</code>.
+              El índice SPI aún no está disponible. Cuando haya historial de lluvia suficiente, aparecerá aquí.
             </p>
           )}
         </CardContent>

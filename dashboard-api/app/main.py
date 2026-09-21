@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.db import get_engine, load_dashboard_data
 from app.spi_gis import (
@@ -94,3 +94,110 @@ def gis_zones() -> JSONResponse:
         return JSONResponse(content=fc)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/gis/chg/layers")
+def gis_chg_layers() -> dict:
+    """Catálogo de capas públicas CHG (metadatos; sin martillar GeoServer)."""
+    try:
+        from app.chg_layers import build_chg_layers_snapshot
+
+        return jsonable_encoder(build_chg_layers_snapshot(include_inline_geojson=False))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/gis/chg/{layer_id}.geojson")
+def gis_chg_layer_geojson(
+    layer_id: str,
+    refresh: bool = Query(False, description="Forzar refetch (ignora caché)"),
+    max_features: int | None = Query(
+        None, ge=1, le=5000, description="Tope WFS (obligatorio para recintos_riego_pub)"
+    ),
+    bbox: str | None = Query(
+        None, description="BBOX WFS opcional: minx,miny,maxx,maxy[,CRS]"
+    ),
+    simplify_tol: float | None = Query(
+        None, ge=0.0, le=0.1, description="Tolerancia Douglas-Peucker en grados"
+    ),
+) -> JSONResponse:
+    """GeoJSON simplificado + metadatos de una capa CHG (caché disco/memoria)."""
+    try:
+        from app.chg_layers import LAYER_BY_ID, fetch_layer_geojson
+
+        if layer_id not in LAYER_BY_ID:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Capa desconocida: {layer_id}. Ver /api/gis/chg/layers",
+            )
+        payload = fetch_layer_geojson(
+            layer_id,
+            force_refresh=refresh,
+            max_features=max_features,
+            bbox=bbox,
+            simplify_tol=simplify_tol,
+        )
+        return JSONResponse(content=jsonable_encoder(payload))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+@app.get("/api/gis/open/layers")
+def gis_open_layers() -> dict:
+    """Catálogo REDIAM / ICRA + puntero a extras CHG (metadatos; sin red)."""
+    try:
+        from app.open_irrigation_layers import build_open_layers_snapshot
+
+        return jsonable_encoder(build_open_layers_snapshot())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/gis/open/rediam/donana.wms")
+def gis_rediam_donana_wms(request: Request) -> Response:
+    """Proxy WMS GetMap/GetCapabilities hacia REDIAM Doñana (reintentos TLS)."""
+    try:
+        from app.open_irrigation_layers import proxy_rediam_wms_bytes
+
+        # Flatten query: take first value per key (Leaflet WMS params).
+        q: dict[str, str] = {}
+        for k, v in request.query_params.multi_items():
+            q[k] = v
+        body, ctype = proxy_rediam_wms_bytes(q)
+        return Response(content=body, media_type=ctype)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"REDIAM WMS no disponible: {e}",
+        ) from e
+
+
+@app.get("/api/meteo/forecast")
+def get_meteo_forecast(
+    province: str | None = Query(
+        None,
+        description="Provincia andaluza (capital AEMET). Vacío = Andalucía.",
+    ),
+) -> dict:
+    """AEMET (preferred) / Open-Meteo forecast for Andalucía or a province capital."""
+    try:
+        from app.meteo_forecast import load_meteo_forecast
+
+        return jsonable_encoder(load_meteo_forecast(province))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/meteo/provinces")
+def get_meteo_provinces() -> dict:
+    """Province options for the Clima selector."""
+    from app.provinces_meta import PROVINCES, REGIONAL_KEY
+
+    return {
+        "regional": REGIONAL_KEY,
+        "provinces": [p["name"] for p in PROVINCES],
+    }
+
